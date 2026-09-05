@@ -573,6 +573,9 @@
   }
   .pin-card:hover{transform:translateY(-2px);}
   .pin-card.hidden{display:none;}
+  .pin-card.no-click{cursor:default;}
+  .pin-card.no-click:hover{transform:none;}
+  .pin-card.no-click .visit-btn{display:none;}
 
   .pin-visual{
     position:relative; display:flex; align-items:center; justify-content:center;
@@ -1736,6 +1739,23 @@ function render(list){
     const badgeClass = isVideo ? 'video' : (isArticle ? 'article' : (p.affiliate === true ? 'affiliate' : (p.affiliate === false ? 'no-affiliate' : 'pending')));
     const badgeText = isVideo ? '▶ Video' : (isArticle ? '📰 Article' : (p.affiliate === true ? 'Affiliate Link' : (p.affiliate === false ? 'Non Affiliate' : 'Add Link')));
     const catLabel = p.cats.map(c => CATEGORY_LABELS[c] || c).join(', ');
+    // A tile only opens (modal or Visit) when it actually shows an
+    // "Affiliate Link" or "Non Affiliate" pill. Video/Article tiles have
+    // their own pill and always stay clickable. Everything else — pending
+    // items with no affiliate status set, and items whose pill is hidden
+    // for their category (diet/inspiration/exotics with no real link) —
+    // is inert: no modal, no Visit button, no click at all.
+    const hasAffiliatePill = !isVideo && !isArticle
+      && !((p.cats.includes('diet') || p.cats.includes('inspiration') || p.cats.includes('exotics') || p.exoticsLinked) && p.link === '#')
+      && (p.affiliate === true || p.affiliate === false);
+    const isClickable = isVideo || isArticle || hasAffiliatePill;
+    // A gated (locked) card only stays interactive if it actually has real
+    // content behind the gate. A gated card with no pill (nothing filled in
+    // yet) is just as inert as any other badge-less tile — verifying age/
+    // email would only land on "link not yet added," so there's no reason
+    // to let it be clicked at all.
+    const isLockedInteractive = isGated && isClickable;
+    card.className = 'pin-card' + (!isClickable ? ' no-click' : '');
     const visualStyle = isVideo
       ? `background:#000 url('https://img.youtube.com/vi/${p.youtubeId}/hqdefault.jpg') center/cover no-repeat`
       : (p.img ? `background:#fff url('${p.img}') center/contain no-repeat` : `background:${p.color}`);
@@ -1751,13 +1771,13 @@ function render(list){
             <button class="save-btn ${saved.has(idx)?'saved':''}" data-save="${idx}">${saved.has(idx)?'Saved':'Save'}</button>
           </div>
           <div class="overlay-bottom">
-            <button class="visit-btn" data-visit="${idx}">↗ Visit</button>
+            ${isClickable ? `<button class="visit-btn" data-visit="${idx}">↗ Visit</button>` : ''}
           </div>
         </div>
       </div>
       <div class="pin-body">
-        <p class="pin-name">${isGated ? '🔒 ' : ''}${p.name}${isInStack(p) ? `<span class="stack-badge" title="In my personal stack"><img src="${STACK_ICON}" alt="In my personal stack"></span>` : ''}</p>
-        <p class="pin-note">${isGated ? 'Prescription-level — verify to view full details.' : p.note}</p>
+        <p class="pin-name">${isLockedInteractive ? '🔒 ' : ''}${p.name}${isInStack(p) ? `<span class="stack-badge" title="In my personal stack"><img src="${STACK_ICON}" alt="In my personal stack"></span>` : ''}</p>
+        <p class="pin-note">${isLockedInteractive ? 'Prescription-level — verify to view full details.' : p.note}</p>
         <div class="pin-meta">
           ${((p.cats.includes('diet') || p.cats.includes('inspiration') || p.cats.includes('exotics') || p.exoticsLinked) && p.link === '#') ? '' : `<span class="badge ${badgeClass}">${badgeText}</span>`}
           <span class="cat-tag">${catLabel}</span>
@@ -1768,10 +1788,12 @@ function render(list){
     // from Topicals) route through the email + age gate and land the
     // visitor on the Exotics bucket, rather than opening this pin directly,
     // whenever they're shown gated (i.e. anywhere outside the unlocked tab).
-    if(isGated){
-      card.addEventListener('click', () => requestExoticsAccess(document.getElementById('exoticsPill')));
-    } else {
-      card.addEventListener('click', () => requestAccess({type:'modal', idx}));
+    if(isClickable){
+      if(isGated){
+        card.addEventListener('click', () => requestExoticsAccess(document.getElementById('exoticsPill')));
+      } else {
+        card.addEventListener('click', () => requestAccess({type:'modal', idx}));
+      }
     }
     grid.appendChild(card);
   });
