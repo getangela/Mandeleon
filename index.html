@@ -3,6 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-GJREMBYVFS"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-GJREMBYVFS');
+</script>
 <title>Mandeleon — Every Supplement, Gadget & Topical I Actually Use</title>
 <meta name="description" content="Decades of biohacking, organized in one place. Every supplement, gadget, and topical in my personal longevity stack — the why, the how, and where to get it.">
 <meta property="og:type" content="website">
@@ -1211,7 +1219,7 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
     <button class="cat-pill" data-filter="muscle">Muscle &amp; Performance</button>
     <button class="cat-pill" data-filter="gadgets">Gadgets</button>
     <button class="cat-pill" data-filter="topicals">Topicals</button>
-    <button class="cat-pill" data-filter="exotics" id="exoticsPill">Exotics</button>
+    <button class="cat-pill" data-filter="exotics" id="exoticsPill">🔒 Exotics</button>
     <button class="cat-pill" data-filter="diet">Diet</button>
     <button class="cat-pill" data-filter="agetesting">Age Testing</button>
     <button class="cat-pill" data-filter="cuttingedge">Cutting Edge</button>
@@ -1590,7 +1598,21 @@ const gateEmailError = document.getElementById('gateEmailError');
 const gateSubmitBtn = document.getElementById('gateSubmitBtn');
 const gateEmailClose = document.getElementById('gateEmailClose');
 
-let emailUnlocked = false; // in-memory only, resets each visit
+// Remembers a visitor across visits so they aren't asked for their email
+// again once they've already unlocked the stack. Stored in localStorage
+// (per-browser, not shared across devices); falls back to in-memory-only
+// behavior if storage is unavailable (private browsing, blocked cookies, etc.)
+const EMAIL_UNLOCKED_KEY = 'mandeleon_email_unlocked';
+function getStoredEmailUnlocked(){
+  try{ return localStorage.getItem(EMAIL_UNLOCKED_KEY) === '1'; }
+  catch(e){ return false; }
+}
+function setStoredEmailUnlocked(){
+  try{ localStorage.setItem(EMAIL_UNLOCKED_KEY, '1'); }
+  catch(e){ /* storage unavailable — visitor just won't be remembered next time */ }
+}
+
+let emailUnlocked = getStoredEmailUnlocked();
 let pendingAction = null;  // { type: 'modal'|'visit', idx } — what to do once unlocked
 
 function isValidEmail(v){
@@ -1665,6 +1687,7 @@ emailGateForm.addEventListener('submit', async (e) => {
   }
 
   emailUnlocked = true;
+  setStoredEmailUnlocked();
   gateSubmitBtn.disabled = false;
   gateSubmitBtn.textContent = 'Unlock My Stack';
   emailGate.classList.remove('open');
@@ -1725,7 +1748,31 @@ contactForm.addEventListener('submit', async (e) => {
 
 const grid = document.getElementById('pinGrid');
 const emptyState = document.getElementById('emptyState');
-const saved = new Set(); // in-memory only, no persistence
+
+// Saved/favorite tiles persist across visits via localStorage, keyed by each
+// product's stable `slug` (not its array index, since the index a tile sits
+// at can shift as products are added or reordered later). Falls back to
+// in-memory-only behavior if storage is unavailable.
+const SAVED_SLUGS_KEY = 'mandeleon_saved_slugs';
+function getStoredSavedSlugs(){
+  try{
+    const raw = localStorage.getItem(SAVED_SLUGS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch(e){ return []; }
+}
+function setStoredSavedSlugs(slugs){
+  try{ localStorage.setItem(SAVED_SLUGS_KEY, JSON.stringify(slugs)); }
+  catch(e){ /* storage unavailable — saves just won't persist this session */ }
+}
+
+const storedSavedSlugs = new Set(getStoredSavedSlugs());
+const saved = new Set(
+  PRODUCTS.reduce((indices, p, i) => {
+    if(storedSavedSlugs.has(p.slug)) indices.push(i);
+    return indices;
+  }, [])
+);
 
 const NEW_WINDOW_DAYS = 21;
 function isNew(p){
@@ -1765,12 +1812,6 @@ function render(list){
       && !((p.cats.includes('diet') || p.cats.includes('inspiration') || p.cats.includes('exotics') || p.exoticsLinked) && p.link === '#')
       && (p.affiliate === true || p.affiliate === false);
     const isClickable = isVideo || isArticle || hasAffiliatePill;
-    // A gated (locked) card only stays interactive if it actually has real
-    // content behind the gate. A gated card with no pill (nothing filled in
-    // yet) is just as inert as any other badge-less tile — verifying age/
-    // email would only land on "link not yet added," so there's no reason
-    // to let it be clicked at all.
-    const isLockedInteractive = isGated && isClickable;
     card.className = 'pin-card' + (!isClickable ? ' no-click' : '');
     const visualStyle = isVideo
       ? `background:#000 url('https://img.youtube.com/vi/${p.youtubeId}/hqdefault.jpg') center/cover no-repeat`
@@ -1792,8 +1833,8 @@ function render(list){
         </div>
       </div>
       <div class="pin-body">
-        <p class="pin-name">${isLockedInteractive ? '🔒 ' : ''}${p.name}${isInStack(p) ? `<span class="stack-badge" title="In my personal stack"><img src="${STACK_ICON}" alt="In my personal stack"></span>` : ''}</p>
-        <p class="pin-note">${isLockedInteractive ? 'Prescription-level — verify to view full details.' : p.note}</p>
+        <p class="pin-name">${p.name}${isInStack(p) ? `<span class="stack-badge" title="In my personal stack"><img src="${STACK_ICON}" alt="In my personal stack"></span>` : ''}</p>
+        <p class="pin-note">${p.note}</p>
         <div class="pin-meta">
           ${((p.cats.includes('diet') || p.cats.includes('inspiration') || p.cats.includes('exotics') || p.exoticsLinked) && p.link === '#') ? '' : `<span class="badge ${badgeClass}">${badgeText}</span>`}
           <span class="cat-tag">${catLabel}</span>
@@ -1821,6 +1862,7 @@ function render(list){
       const idx = parseInt(btn.dataset.save, 10);
       if(saved.has(idx)){ saved.delete(idx); btn.classList.remove('saved'); btn.textContent = 'Save'; }
       else { saved.add(idx); btn.classList.add('saved'); btn.textContent = 'Saved'; }
+      setStoredSavedSlugs(Array.from(saved).map(i => PRODUCTS[i].slug));
     });
   });
 
@@ -1838,7 +1880,10 @@ function render(list){
   });
 }
 
-let exoticsUnlocked = true; // TEMP: defaulted open per Aeon's request while previewing — flip back to false before this site goes live, so visitors go through the age/disclaimer gate again.
+// Restored to locked: every visitor goes through the 18+/disclaimer gate
+// again each visit (intentionally not remembered across visits, unlike the
+// email gate above — this is a fresh confirmation every time).
+let exoticsUnlocked = false;
 let pendingPillFilter = null;
 
 // A few prescription-level products (Estriol Cream, Bimatoprost, Tretinoin
