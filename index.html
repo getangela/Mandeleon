@@ -492,9 +492,13 @@
   a{color:inherit;text-decoration:none;}
   button{font-family:inherit;cursor:pointer;}
 
+  /* ---------- Sticky nav wrapper (topbar + category pills stick together) ---------- */
+  .sticky-nav{
+    position:sticky; top:0; z-index:50;
+  }
+
   /* ---------- Topbar ---------- */
   .topbar{
-    position:sticky; top:0; z-index:50;
     display:grid; grid-template-columns:1fr;
     grid-template-areas:"logo" "iconnav" "searchrow";
     justify-items:center; row-gap:10px;
@@ -503,19 +507,29 @@
   }
   .logo{
     grid-area:logo; justify-self:center;
-    display:flex; align-items:center; gap:8px;
+    display:flex; flex-direction:column; align-items:center; gap:6px;
     font-weight:800; font-size:19px; white-space:nowrap; color:var(--ink);
-    height:84px; box-sizing:border-box; flex:none;
+    /* Fluid width at every screen size: scales down to fit narrow phones,
+       scales up through tablets, and settles at its natural 752px size on
+       desktop — never wider than the screen has room for, so it can't get
+       clipped at any viewport width. Height just follows automatically
+       from the logo's own aspect ratio. */
+    width:min(calc(100vw - 48px), 752px); height:auto;
+    box-sizing:border-box; flex:none;
   }
   .logo .mark{
     width:34px;height:34px;border-radius:50%;
     background:#e8730c; color:#fff; display:flex; align-items:center; justify-content:center;
     font-size:17px; font-weight:900;
   }
-  .logo-img{height:100%; width:auto; display:block;}
+  .logo-img{height:auto; width:100%; display:block;}
+  .logo-tagline{
+    margin:0; width:100%; text-align:center;
+    font-size:clamp(9px, 2.4vw, 13px); font-weight:600; letter-spacing:2px;
+    text-transform:uppercase; color:var(--ink-soft); white-space:nowrap;
+  }
   @media(max-width:600px){
     .topbar{height:auto; padding:10px 16px;}
-    .logo{height:56px; padding:0;}
   }
   .pin-icons{grid-area:iconnav; justify-self:center; display:flex; gap:4px; align-items:center;}
   .icon-btn{
@@ -796,6 +810,7 @@
     </div>
   </div>
 
+  <div class="sticky-nav">
   <header class="topbar">
     <div class="logo"><svg class="logo-img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 5427.905276 606.346481" role="img" aria-label="Mandeleon"><g transform="translate(-92.090592,715.588831) scale(0.100000,-0.100000)"
 fill="#201D1E" stroke="none">
@@ -1155,7 +1170,7 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
 97 4 131 9 140 21 10 11 14 78 16 247 3 209 2 233 -14 246 -15 12 -250 15
 -1608 19 -1490 5 -1594 6 -1618 22 l-27 18 4 392 c3 216 7 1413 10 2660 4
 2051 3 2268 -11 2282 -13 14 -53 16 -284 16 -265 0 -269 0 -294 -22z"/>
-</g></svg></div>
+</g></svg><p class="logo-tagline">Science | Longevity | People</p></div>
     <nav class="pin-icons" id="pinIcons">
       <button class="icon-btn" id="navHome" type="button" title="Home" aria-label="Home">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-9"/><path d="M9.5 20v-6h5v6"/></svg>
@@ -1202,6 +1217,7 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
     <button class="cat-pill" data-filter="cuttingedge">Cutting Edge</button>
     <button class="cat-pill" data-filter="inspiration">Inspiration</button>
   </nav>
+  </div>
 
   <section class="hero">
     <h1 id="heroTitle">Crowd Sourced Biohacking. Real Hacks for Real People.</h1>
