@@ -886,6 +886,15 @@
     font-size:12.5px; font-weight:700; color:var(--ink); white-space:nowrap;
     max-width:96px; overflow:hidden; text-overflow:ellipsis;
   }
+  /* Health (vitality tier) and Cohort Pool status, as a pair of small
+     color-coded pills next to the name — see getAvatarStatusInfo() and
+     renderAvatarStrip() in the script below. Colors are set inline per
+     status so one small .status-pill rule covers every combination. */
+  .avatar-strip-status{display:flex; gap:4px; flex:none;}
+  .status-pill{
+    display:inline-flex; align-items:center; padding:2px 8px; border-radius:10px;
+    font-size:10px; font-weight:800; white-space:nowrap; letter-spacing:.2px;
+  }
   .avatar-strip-meters{
     display:flex; gap:16px; overflow-x:auto; flex:1; min-width:0;
     scrollbar-width:none;
@@ -900,6 +909,7 @@
   @media(max-width:600px){
     .avatar-strip{padding:8px 16px; gap:10px;}
     .avatar-strip-name{display:none;}
+    .avatar-strip-status .status-pill:last-child{display:none;}
   }
 
   /* ---------- Hero ---------- */
@@ -1184,13 +1194,13 @@
   .avatar-visual-wrap{position:relative; display:flex; align-items:center; justify-content:center;}
   .avatar-visual{display:flex; align-items:center; justify-content:center; margin-bottom:4px;}
   .avatar-photo-edit-btn{
-    position:absolute; left:calc(50% + 42px); bottom:12px; width:34px; height:34px; border-radius:50%;
+    position:absolute; left:calc(50% + 62px); bottom:18px; width:34px; height:34px; border-radius:50%;
     background:var(--ink); color:#fff; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.25);
     display:flex; align-items:center; justify-content:center; font-size:16px; cursor:pointer; padding:0;
   }
   .avatar-photo-edit-btn:hover{opacity:.88;}
   .avatar-body-wrap{
-    position:relative; width:150px; max-width:100%; transition:filter .6s ease;
+    position:relative; width:220px; max-width:100%; transition:filter .6s ease;
     transform-origin:center bottom;
     animation:avatarIdleBreathe 3s ease-in-out infinite;
   }
@@ -1228,9 +1238,55 @@
       repeating-linear-gradient(115deg, rgba(60,45,25,.14) 0 2px, rgba(60,45,25,0) 2px 10px);
     transition:opacity .6s ease;
   }
+  /* ---------- Peak tier (every single meter maxed) ----------
+     The avatar art is one flat illustration, not separate movable limbs —
+     a genuine flex pose needs new artwork (tracked on todo.html). Until
+     then, this is the CSS-only stand-in: a warm glow halo plus a bigger/
+     quicker version of the idle bounce (see .tier-peak below). */
+  .avatar-body-wrap.tier-peak{ animation-name:avatarPeakBreathe; }
+  @keyframes avatarPeakBreathe{
+    0%, 100% { transform: rotate(var(--tier-rotate, 0deg)) translateY(0) scale(1); }
+    50%      { transform: rotate(var(--tier-rotate, 0deg)) translateY(-6px) scale(1.045); }
+  }
+  .avatar-peak-glow{
+    position:absolute; inset:-18%; border-radius:50%; pointer-events:none; z-index:-1;
+    background:radial-gradient(circle, rgba(255,199,64,.55) 0%, rgba(255,199,64,.22) 45%, rgba(255,199,64,0) 72%);
+    animation:avatarPeakGlow 2.2s ease-in-out infinite;
+  }
+  @keyframes avatarPeakGlow{
+    0%, 100% { opacity:.7; transform:scale(1); }
+    50%      { opacity:1;  transform:scale(1.08); }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .avatar-peak-glow{ animation:none; }
+  }
   .avatar-view h2{text-align:center; margin:0 0 4px; font-size:21px;}
+  /* Biological vs chronological age — "the number displayed most
+     prominently" per Section 1 of the spec. Biological age (driven by the
+     weakest meter — see getAvatarAges()) gets the larger/bolder treatment;
+     chronological age sits beside it as the smaller reference point the
+     avatar is being measured against. See renderAvatarAge(). */
+  .avatar-age-display{text-align:center; margin:0 0 10px;}
+  .avatar-age-row{display:flex; align-items:baseline; justify-content:center; gap:22px;}
+  .avatar-age-stat{display:flex; flex-direction:column; align-items:center;}
+  .avatar-age-value{font-size:26px; font-weight:800; color:var(--ink); line-height:1.1;}
+  .avatar-age-caption{font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--ink-soft); margin-top:2px;}
+  .avatar-age-stat-secondary .avatar-age-value{font-size:18px; font-weight:700; color:var(--ink-soft);}
+  .avatar-age-gap{font-size:12.5px; font-weight:700; margin:4px 0 0;}
+  /* Explains the "1 real day = 1 avatar month" compression rule (Section 1
+     of the spec) right where the two ages are shown, so the clock doesn't
+     read as an arbitrary/buggy number to a first-time visitor. */
+  .avatar-age-note{font-size:10.5px; font-style:italic; color:#999; margin:4px 0 0;}
   .avatar-vitality-label{text-align:center; font-size:13px; color:var(--ink-soft); margin:0 0 2px;}
-  .avatar-level-label{text-align:center; font-size:12px; color:var(--ink-soft); margin:0 0 20px;}
+  .avatar-level-label{text-align:center; font-size:12px; color:var(--ink-soft); margin:0 0 6px;}
+  /* Health (vitality tier) and Cohort Pool status, spelled out in full here
+     (the header strip's version is icon-free .status-pill badges only) —
+     see getAvatarStatusInfo()/renderAvatarStatusLine() in the script. */
+  .avatar-status-line{
+    text-align:center; font-size:12.5px; color:var(--ink-soft); margin:0 0 18px;
+    display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap;
+  }
+  .avatar-status-line .status-pill{font-size:11px;}
   .avatar-level-label b{color:var(--ink);}
   .avatar-meters{display:flex; flex-direction:column; gap:14px;}
   .meter-row{display:flex; align-items:center; gap:10px;}
@@ -1676,6 +1732,7 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
     <button type="button" class="avatar-strip-identity" id="avatarStripIdentity" title="Open your avatar">
       <img class="avatar-strip-thumb" id="avatarStripThumb" src="" alt="">
       <span class="avatar-strip-name" id="avatarStripName"></span>
+      <span class="avatar-strip-status" id="avatarStripStatus"></span>
     </button>
     <div class="avatar-strip-meters" id="avatarStripMeters"></div>
   </div>
@@ -1817,6 +1874,7 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
           </form>
         </div>
         <div id="avatarView" class="avatar-view" hidden>
+          <div class="avatar-age-display" id="avatarAgeDisplay"></div>
           <div class="avatar-visual-wrap">
             <div class="avatar-visual" id="avatarVisual"></div>
             <button type="button" class="avatar-photo-edit-btn" id="avatarPhotoEditBtn" title="Add or change photo" aria-label="Add or change avatar photo">📷</button>
@@ -1825,6 +1883,7 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
           <h2 id="avatarModalTitle"></h2>
           <p class="avatar-vitality-label" id="avatarVitalityLabel"></p>
           <p class="avatar-level-label" id="avatarLevelLabel"></p>
+          <p class="avatar-status-line" id="avatarStatusLine"></p>
           <div class="avatar-meters" id="avatarMeters"></div>
         </div>
       </div>
@@ -2466,6 +2525,68 @@ function formatBirthdate(dateStr){
   return dt.toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
 }
 
+/* =========================================================
+   BIOLOGICAL VS CHRONOLOGICAL AGE — gamification-spec.md Section 1,
+   "the core metric... the number displayed most prominently."
+   Chronological age is real-time, compressed per the spec's own rule
+   (roughly 1 real day = 1 avatar "month") starting from the avatar's own
+   createdAt — never the user's real age. Biological age is driven by the
+   WEAKEST meter, not the average (a deliberate "weakest-link" model per
+   the spec, distinct from the average-based Health/vitality tier above).
+   The spec describes the direction ("good feeding pushes biological age
+   below chronological; neglect lets the gap close or reverse") but doesn't
+   pin an exact formula, so this is the implementation of that: the weakest
+   meter's distance from 50 — the neutral value every avatar starts at —
+   scales chronological age up or down by up to MAX_AGE_SWING in either
+   direction. At the weakest meter's floor (0) the avatar reads 40% older
+   than its real chronological age; at a perfect 100 it reads 40% younger;
+   at exactly 50 (or freshly created) the two match exactly.
+   ========================================================= */
+const MAX_AGE_SWING = 0.4;
+function getAvatarAges(avatar){
+  const createdMs = new Date(avatar.createdAt + 'T00:00:00').getTime();
+  const chronoMonths = Math.max(0, (Date.now() - createdMs) / (1000 * 60 * 60 * 24)); // 1 real day = 1 avatar month
+  const weakest = Math.min(...Object.values(avatar.meters));
+  const modifier = Math.max(-1, Math.min(1, (weakest - 50) / 50)); // -1..+1
+  const bioMonths = Math.max(0, chronoMonths * (1 - modifier * MAX_AGE_SWING));
+  return { chronoMonths, bioMonths, weakest, gapMonths: chronoMonths - bioMonths };
+}
+function formatAvatarAge(totalMonths){
+  const m = Math.round(totalMonths);
+  if(m < 12) return `${m} mo`;
+  const years = Math.floor(m / 12), rem = m % 12;
+  return rem === 0 ? `${years} yr` : `${years} yr ${rem} mo`;
+}
+function renderAvatarAge(avatar){
+  const el = document.getElementById('avatarAgeDisplay');
+  if(!el) return;
+  const ages = getAvatarAges(avatar);
+  let gapLabel, gapColor;
+  if(ages.gapMonths > 0.5){
+    gapLabel = `${formatAvatarAge(ages.gapMonths)} younger than chronological age`;
+    gapColor = '#1f9d55';
+  } else if(ages.gapMonths < -0.5){
+    gapLabel = `${formatAvatarAge(-ages.gapMonths)} older than chronological age`;
+    gapColor = '#c0392b';
+  } else {
+    gapLabel = 'Right on track';
+    gapColor = '#999';
+  }
+  el.innerHTML = `
+    <div class="avatar-age-row">
+      <div class="avatar-age-stat avatar-age-stat-secondary">
+        <span class="avatar-age-value">${formatAvatarAge(ages.chronoMonths)}</span>
+        <span class="avatar-age-caption">Chronological Age</span>
+      </div>
+      <div class="avatar-age-stat">
+        <span class="avatar-age-value">${formatAvatarAge(ages.bioMonths)}</span>
+        <span class="avatar-age-caption">Biological Age</span>
+      </div>
+    </div>
+    <p class="avatar-age-gap" style="color:${gapColor}">${gapLabel}</p>
+    <p class="avatar-age-note">1 real day ≈ 1 avatar month.</p>`;
+}
+
 function getAvatar(){
   try{
     const raw = localStorage.getItem(AVATAR_KEY);
@@ -2508,14 +2629,14 @@ function createAvatar(name, faceImage){
    one is never undone by later neglect, unlike the meters/tier.
    ========================================================= */
 const CARE_LEVELS = [
-  { level:1, score:0,    title:'Fledgling' },
-  { level:2, score:10,   title:'Rising' },
-  { level:3, score:30,   title:'Steady' },
-  { level:4, score:75,   title:'Established' },
-  { level:5, score:150,  title:'Seasoned' },
-  { level:6, score:300,  title:'Veteran' },
-  { level:7, score:500,  title:'Elder' },
-  { level:8, score:1000, title:'Ageless' }
+  { level:1, score:0,    title:'Recruit' },
+  { level:2, score:10,   title:'Cadet' },
+  { level:3, score:30,   title:'Private' },
+  { level:4, score:75,   title:'Sergeant' },
+  { level:5, score:150,  title:'Captain' },
+  { level:6, score:300,  title:'Major' },
+  { level:7, score:500,  title:'Colonel' },
+  { level:8, score:1000, title:'Five-Star General' }
 ];
 function getAvatarLevel(avatar){
   const score = (avatar && avatar.careScore) || 0;
@@ -2690,7 +2811,7 @@ function renderAvatarLevel(avatar){
   const progress = info.next
     ? ` · ${info.score}/${info.next.score} Longevity Score to Level ${info.next.level}`
     : ' · Max level reached';
-  el.innerHTML = `<b>Level ${info.level} — ${info.title}</b>${progress}`;
+  el.innerHTML = `<b>Level ${info.level}: ${info.title}</b>${progress}`;
 }
 
 // The always-visible header strip (docked in .sticky-nav, between the
@@ -2708,6 +2829,9 @@ function renderAvatarStrip(){
   strip.hidden = false;
   document.getElementById('avatarStripThumb').src = avatar.faceImage || AVATAR_FACE_THUMB;
   document.getElementById('avatarStripName').textContent = avatar.name;
+  const status = getAvatarStatusInfo(avatar);
+  document.getElementById('avatarStripStatus').innerHTML =
+    statusPillHtml(status.health) + statusPillHtml(status.poolInfo);
   const metersContainer = document.getElementById('avatarStripMeters');
   metersContainer.innerHTML = Object.keys(METER_CONFIG).map(key => {
     const cfg = METER_CONFIG[key];
@@ -2734,9 +2858,67 @@ function initAvatarStrip(){
 function getAvatarVitalityTier(avatar){
   const values = Object.values(avatar.meters);
   const avg = values.reduce((a, b) => a + b, 0) / values.length;
+  // "Totally topped off" means every single meter maxed, not just a high
+  // average — one neglected category still holds the avatar to Thriving,
+  // same reasoning as the average rule above. Triggers the celebratory
+  // Peak pose/effects — see BODY_TIER_STYLE and renderAvatarBody().
+  if(values.every(v => Math.round(v) >= 100)) return 'peak';
   if(avg >= 50) return 'thriving';
   if(avg >= 25) return 'struggling';
   return 'withering';
+}
+
+// Display labels for the vitality tier above ("Health status" on the
+// avatar) — battery/charge themed, a 1:1 display mapping onto
+// getAvatarVitalityTier()'s peak/thriving/struggling/withering keys (those
+// internal names stay unchanged, same "rename the label, not the plumbing"
+// approach used for Care Score -> Longevity Score elsewhere in this file).
+const HEALTH_STATUS_INFO = {
+  peak:       { label: 'Supercharged', color: '#b8860b' },
+  thriving:   { label: 'Energized',    color: '#1f9d55' },
+  struggling: { label: 'Recharging',   color: '#c98a1c' },
+  withering:  { label: 'Depleted',     color: '#c0392b' }
+};
+
+// Cohort Pool status (gamification-spec.md Section 8) — the tier a weekly
+// leaderboard would currently place this avatar into. The full leaderboard
+// itself needs a real backend (tracked on todo.html, not built yet), but
+// the pool an avatar is IN right now is a pure function of its current
+// meters, so it can be shown today with no backend at all. "Elite" reuses
+// the exact every-meter->=70 "Radiant day" check from awardCareScoreForDay
+// below; Critical currently covers Withering only since Coma (the other
+// half of Critical, per the spec table) isn't built yet either.
+const POOL_INFO = {
+  elite:    { label: 'Elite',    color: '#7c5cbf' },
+  optimal:  { label: 'Optimal',  color: '#1f9d55' },
+  normal:   { label: 'Normal',   color: '#c98a1c' },
+  critical: { label: 'Critical', color: '#c0392b' }
+};
+function getAvatarPool(avatar){
+  const values = Object.values(avatar.meters);
+  const avg = values.reduce((a, b) => a + b, 0) / values.length;
+  if(values.every(v => v >= 70)) return 'elite';
+  if(avg >= 50) return 'optimal';
+  if(avg >= 25) return 'normal';
+  return 'critical';
+}
+
+// Bundles both status reads together — used by both the avatar panel's
+// spelled-out status line and the header strip's compact pills, so the two
+// never drift out of sync with each other.
+function getAvatarStatusInfo(avatar){
+  const tier = getAvatarVitalityTier(avatar);
+  const pool = getAvatarPool(avatar);
+  return { tier, pool, health: HEALTH_STATUS_INFO[tier], poolInfo: POOL_INFO[pool] };
+}
+function statusPillHtml(info){
+  return `<span class="status-pill" style="background:${info.color}22; color:${info.color};">${info.label}</span>`;
+}
+function renderAvatarStatusLine(avatar){
+  const el = document.getElementById('avatarStatusLine');
+  if(!el) return;
+  const status = getAvatarStatusInfo(avatar);
+  el.innerHTML = `Health: ${statusPillHtml(status.health)} &nbsp; Pool: ${statusPillHtml(status.poolInfo)}`;
 }
 
 // The base avatar illustration — a licensed image the user has confirmed
@@ -2758,9 +2940,10 @@ const AVATAR_FACE_THUMB = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKAAAAC
 // tier: quicker and livelier while thriving, slower and heavier while
 // withering, like labored breathing.
 const BODY_TIER_STYLE = {
-  thriving:   { rotate: 0,  filter: 'none',                                    sparkle: true,  worn: 0,    idleDuration: '2.6s' },
-  struggling: { rotate: 5,  filter: 'saturate(.55) brightness(.92) sepia(.18)', sparkle: false, worn: 0.35, idleDuration: '3.4s' },
-  withering:  { rotate: 11, filter: 'grayscale(.75) brightness(.78) sepia(.28)', sparkle: false, worn: 0.65, idleDuration: '4.4s' }
+  peak:       { rotate: 0,  filter: 'saturate(1.2) brightness(1.06)',          sparkle: true,  worn: 0,    idleDuration: '1.9s', flexPose: true },
+  thriving:   { rotate: 0,  filter: 'none',                                    sparkle: true,  worn: 0,    idleDuration: '2.6s', flexPose: false },
+  struggling: { rotate: 5,  filter: 'saturate(.55) brightness(.92) sepia(.18)', sparkle: false, worn: 0.35, idleDuration: '3.4s', flexPose: false },
+  withering:  { rotate: 11, filter: 'grayscale(.75) brightness(.78) sepia(.28)', sparkle: false, worn: 0.65, idleDuration: '4.4s', flexPose: false }
 };
 
 function renderAvatarBody(avatar){
@@ -2782,11 +2965,24 @@ function renderAvatarBody(avatar){
   const wornMarkup = style.worn > 0
     ? `<div class="avatar-worn-texture" style="opacity:${style.worn};"></div>`
     : '';
+  // Peak (every meter maxed) stands in for a genuine flex pose without new
+  // artwork: a warm glow halo behind the figure — see the .tier-peak class
+  // for the bigger/quicker bounce that goes with it. A real re-posed
+  // illustration is tracked on todo.html.
+  const peakMarkup = style.flexPose
+    ? `<div class="avatar-peak-glow"></div>`
+    : '';
+  // Mirrors the Health pill's battery-themed wording (HEALTH_STATUS_INFO)
+  // so a screen reader announces the same word a sighted visitor sees.
+  const tierLabel = tier === 'peak'
+    ? 'Supercharged — every stat maxed'
+    : HEALTH_STATUS_INFO[tier].label;
   container.innerHTML = `
-    <div class="avatar-body-wrap" role="img" aria-label="Avatar looking ${tier}" style="--tier-rotate:${style.rotate}deg; filter:${style.filter}; animation-duration:${style.idleDuration};">
+    <div class="avatar-body-wrap tier-${tier}" role="img" aria-label="Avatar looking ${tierLabel}" style="--tier-rotate:${style.rotate}deg; filter:${style.filter}; animation-duration:${style.idleDuration};">
       <img src="${AVATAR_BODY_IMAGE}" alt="">
       ${overlayMarkup}
       ${wornMarkup}
+      ${peakMarkup}
       ${sparkleMarkup}
     </div>`;
 }
@@ -2802,9 +2998,11 @@ function openAvatarPanel(){
     document.getElementById('avatarView').hidden = false;
     document.getElementById('avatarModalTitle').textContent = avatar.name;
     document.getElementById('avatarVitalityLabel').textContent = `Birthdate: ${formatBirthdate(avatar.createdAt)}`;
+    renderAvatarAge(avatar);
     renderAvatarBody(avatar);
     renderAvatarMeters(avatar);
     renderAvatarLevel(avatar);
+    renderAvatarStatusLine(avatar);
     renderAvatarStrip();
     // A day rolling over here (applyDecay above) is the main way an avatar
     // actually crosses a Longevity Score level — refresh the grid in case that
@@ -3236,7 +3434,7 @@ function openModal(idx){
     const need = CARE_LEVELS.find(l => l.level === EXOTICS_UNLOCK_LEVEL);
     const current = getAvatarLevel(modalAvatar);
     lockHint.hidden = false;
-    lockHint.textContent = `🔒 Boosting unlocks at Level ${EXOTICS_UNLOCK_LEVEL} — ${need.title} (Longevity Score ${need.score}). You're currently Level ${current.level} — ${current.title} (Longevity Score ${current.score}).`;
+    lockHint.textContent = `🔒 Boosting unlocks at Level ${EXOTICS_UNLOCK_LEVEL}: ${need.title} (Longevity Score ${need.score}). You're currently Level ${current.level}: ${current.title} (Longevity Score ${current.score}).`;
   } else {
     lockHint.hidden = true;
   }
@@ -3290,6 +3488,8 @@ function performFeed(idx, opts){
     const refreshed = getAvatar();
     renderAvatarBody(refreshed);
     renderAvatarLevel(refreshed);
+    renderAvatarStatusLine(refreshed);
+    renderAvatarAge(refreshed);
   }
   // The persistent header strip is visible regardless of whether the full
   // avatar panel is open, so it needs its own unconditional refresh here.
