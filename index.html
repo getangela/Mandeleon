@@ -827,6 +827,12 @@
     color:var(--ink); display:flex; align-items:center; justify-content:center;
   }
   .icon-btn:hover{background:#efefef;}
+  /* Heart nav icon fills solid red while the Favorites board is the active
+     view — same on/off signal .cat-pill.active uses elsewhere, so it reads
+     as a persistent location (like a selected tab) rather than a one-off
+     click. */
+  #navFavorites.active{color:var(--red);}
+  #navFavorites.active svg{fill:currentColor;}
   .search-wrap{
     grid-area:searchrow; justify-self:center; width:100%; max-width:480px; margin:0;
     display:none; overflow:hidden;
@@ -1199,6 +1205,40 @@
     display:flex; align-items:center; justify-content:center; font-size:16px; cursor:pointer; padding:0;
   }
   .avatar-photo-edit-btn:hover{opacity:.88;}
+  /* ---------- Face-photo crop modal ----------
+     Opened right after any of the three photo pickers (naming screen,
+     combined email-gate avatar fields, post-creation "change photo" button)
+     gets a file. Lets a visitor pan/zoom their photo behind a fixed circular
+     viewport before it's baked into the 200x200 stored image, instead of
+     the old behavior of silently auto-cropping the center square. Stacks
+     above every other modal (including the email gate) since any of them
+     can trigger it. */
+  .crop-backdrop{ z-index:300; }
+  .crop-modal{ max-width:360px; }
+  .crop-modal .modal-content{ text-align:center; }
+  .crop-hint{ font-size:12.5px; color:var(--ink-soft); margin:0 0 16px; line-height:1.5; }
+  .crop-frame{
+    position:relative; width:220px; height:220px; margin:0 auto; border-radius:50%;
+    overflow:hidden; background:#eee; cursor:grab; touch-action:none; user-select:none;
+    box-shadow:0 0 0 3px #fff, 0 2px 14px rgba(0,0,0,.2);
+  }
+  .crop-frame.dragging{ cursor:grabbing; }
+  .crop-frame img{
+    position:absolute; left:0; top:0; max-width:none; pointer-events:none;
+    transform-origin:top left;
+  }
+  .crop-zoom-row{
+    display:flex; align-items:center; gap:10px; margin:18px auto 4px; max-width:220px;
+    font-size:18px; color:var(--ink-soft); line-height:1;
+  }
+  .crop-zoom-row input[type=range]{ flex:1; accent-color:var(--ink); }
+  .crop-actions{ display:flex; gap:10px; margin-top:20px; }
+  .crop-actions button{ flex:1; }
+  .crop-cancel-btn{
+    background:var(--canvas); color:var(--ink); border:1px solid var(--line);
+    border-radius:24px; font-weight:700; font-size:14px; padding:11px 16px; cursor:pointer;
+  }
+  .crop-cancel-btn:hover{background:#efefef;}
   .avatar-body-wrap{
     position:relative; width:220px; max-width:100%; transition:filter .6s ease;
     transform-origin:center bottom;
@@ -1719,6 +1759,9 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
       <button class="icon-btn" id="navMessages" type="button" title="Messages" aria-label="Messages">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
       </button>
+      <button class="icon-btn" id="navFavorites" type="button" title="Your Favorites" aria-label="Your Favorites">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+      </button>
       <button class="icon-btn" id="navProfile" type="button" title="Profile" aria-label="Profile">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-7 8-7s8 3 8 7"/></svg>
       </button>
@@ -1760,6 +1803,12 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
     <button class="cat-pill" data-filter="agetesting">Age Testing</button>
     <button class="cat-pill" data-filter="cuttingedge">Cutting Edge</button>
     <button class="cat-pill" data-filter="inspiration">Inspiration</button>
+    <!-- Not a visible filter chip — this is the internal "active filter" state
+         the heart nav icon (#navFavorites) switches on, reusing the exact
+         same activatePill()/applyFilters() machinery every other pill uses
+         so favorites behaves like any other view (deep-linkable state,
+         search still works within it, etc.) without a parallel code path. -->
+    <button class="cat-pill" data-filter="favorites" id="favoritesPill" hidden>Favorites</button>
   </nav>
   </div>
 
@@ -1849,6 +1898,28 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
         </div>
         <p class="exotic-lock-hint" id="modalExoticLockHint" hidden></p>
         <div class="disclosure" id="modalDisclosure"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop crop-backdrop" id="cropBackdrop">
+    <div class="modal crop-modal" role="dialog" aria-modal="true" aria-labelledby="cropModalTitle">
+      <button class="modal-close" id="cropClose" type="button" aria-label="Cancel">✕</button>
+      <div class="modal-content">
+        <h2 id="cropModalTitle">Adjust Your Photo</h2>
+        <p class="crop-hint">Drag to reposition, use the slider to zoom — the circle is what will show on your avatar.</p>
+        <div class="crop-frame" id="cropFrame">
+          <img id="cropImage" src="" alt="" draggable="false">
+        </div>
+        <div class="crop-zoom-row">
+          <span aria-hidden="true">−</span>
+          <input type="range" id="cropZoom" min="1" max="3" step="0.01" value="1" aria-label="Zoom">
+          <span aria-hidden="true">+</span>
+        </div>
+        <div class="crop-actions">
+          <button type="button" class="crop-cancel-btn" id="cropCancelBtn">Cancel</button>
+          <button type="button" class="shop-btn" id="cropConfirm">Use Photo</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1994,6 +2065,10 @@ const CATEGORY_HERO = {
   inspiration: {
     title: "The Longevity Mindset.",
     sub: "The ethos of longevity and the words to keep us motivated, curious, and growing."
+  },
+  favorites: {
+    title: "Your Favorites Board.",
+    sub: "Everything you've saved from the stack, all in one place."
   }
 };
 
@@ -2292,18 +2367,21 @@ function updateEmailGateUI(){
 }
 
 // Optional face photo for the avatar-fields half of the combined gate —
-// same shared crop/compress pipeline (processFacePhotoFile, defined below)
-// as the profile-icon naming screen and the post-creation photo button.
+// same shared crop modal (openCropModal, defined below) as the profile-icon
+// naming screen and the post-creation photo button, so a visitor can pan
+// and zoom to center their face before it's saved rather than getting an
+// automatic, non-adjustable center-square crop.
 let gatePendingFaceImage = null;
 const gatePhotoInput = document.getElementById('gatePhotoInput');
 const gatePhotoLabel = document.getElementById('gatePhotoLabel');
 gatePhotoInput.addEventListener('change', (e) => {
   const file = e.target.files && e.target.files[0];
-  processFacePhotoFile(file, (dataUrl) => {
+  openCropModal(file, (dataUrl) => {
     gatePendingFaceImage = dataUrl;
     gatePhotoLabel.style.backgroundImage = `url('${gatePendingFaceImage}')`;
     gatePhotoLabel.classList.add('has-photo');
   });
+  gatePhotoInput.value = '';
 });
 
 emailGateForm.addEventListener('submit', async (e) => {
@@ -3018,45 +3096,164 @@ function closeAvatarPanel(){ avatarBackdrop.classList.remove('open'); }
 document.getElementById('avatarClose').addEventListener('click', closeAvatarPanel);
 avatarBackdrop.addEventListener('click', (e) => { if(e.target === avatarBackdrop) closeAvatarPanel(); });
 // Optional face photo, captured on the naming screen before the avatar
-// exists yet. Cropped to a centered square, downscaled, and re-compressed
-// client-side so the stored data URL stays small (localStorage-friendly) —
-// see Section 5 of gamification-spec.md.
-// Shared crop/compress pipeline: centers-crops to a square, downscales to
-// 200x200, and re-compresses client-side so the stored data URL stays small
-// (localStorage-friendly) — see Section 5 of gamification-spec.md. Used both
-// by the pre-creation naming screen and by the post-creation "add/change
-// photo" button on an existing avatar.
-function processFacePhotoFile(file, onDone){
+// exists yet (also reused by the combined email-gate avatar fields and the
+// post-creation "change photo" button). Rather than silently auto-cropping
+// the center square, the chosen file opens the crop modal below so a
+// visitor can pan and zoom to actually center their face — then it's
+// downscaled to 200x200 and re-compressed client-side so the stored data
+// URL stays small (localStorage-friendly). See Section 5 of
+// gamification-spec.md.
+//
+// ---------- Face-photo crop modal ----------
+// Generic, reusable across all three photo pickers: openCropModal(file, cb)
+// shows the image behind a fixed circular viewport the visitor can drag to
+// pan and use a slider to zoom; cb(dataUrl) fires once with the final
+// cropped/compressed image if they confirm, or never if they cancel.
+const CROP_OUTPUT_SIZE = 200;
+const cropBackdrop = document.getElementById('cropBackdrop');
+const cropFrame = document.getElementById('cropFrame');
+const cropImageEl = document.getElementById('cropImage');
+const cropZoomInput = document.getElementById('cropZoom');
+let cropState = null;       // { naturalW, naturalH, baseScale, zoom, tx, ty, frameSize }
+let cropConfirmCallback = null;
+let cropDragStart = null;   // { x, y, tx, ty } in client px, set while dragging
+
+function openCropModal(file, onConfirm){
   if(!file) return;
   const reader = new FileReader();
   reader.onload = (ev) => {
     const img = new Image();
     img.onload = () => {
-      const size = Math.min(img.width, img.height);
-      const sx = (img.width - size) / 2;
-      const sy = (img.height - size) / 2;
-      const canvas = document.createElement('canvas');
-      canvas.width = 200;
-      canvas.height = 200;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, sx, sy, size, size, 0, 0, 200, 200);
-      onDone(canvas.toDataURL('image/jpeg', 0.82));
+      // Open the backdrop before measuring — .crop-frame sits inside a
+      // display:none ancestor until now, so clientWidth would read 0 (and
+      // baseScale would divide by that) if measured any earlier.
+      cropImageEl.src = ev.target.result;
+      cropZoomInput.value = '1';
+      cropConfirmCallback = onConfirm;
+      cropBackdrop.classList.add('open');
+      const frameSize = cropFrame.clientWidth;
+      const baseScale = frameSize / Math.min(img.naturalWidth, img.naturalHeight);
+      cropState = {
+        naturalW: img.naturalWidth, naturalH: img.naturalHeight,
+        baseScale, zoom: 1, frameSize, tx: 0, ty: 0
+      };
+      // Start centered — same starting point as the old auto center-crop,
+      // just now adjustable instead of final.
+      cropState.tx = (frameSize - cropState.naturalW * baseScale) / 2;
+      cropState.ty = (frameSize - cropState.naturalH * baseScale) / 2;
+      applyCropTransform();
     };
     img.src = ev.target.result;
   };
   reader.readAsDataURL(file);
 }
 
+function applyCropTransform(){
+  if(!cropState) return;
+  const s = cropState.baseScale * cropState.zoom;
+  cropImageEl.style.width = (cropState.naturalW * s) + 'px';
+  cropImageEl.style.height = (cropState.naturalH * s) + 'px';
+  cropImageEl.style.transform = `translate(${cropState.tx}px, ${cropState.ty}px)`;
+}
+
+// Keeps the image covering the circular viewport at all times — drag/zoom
+// can never reveal empty space around the edge.
+function clampCropPosition(){
+  const s = cropState.baseScale * cropState.zoom;
+  const dispW = cropState.naturalW * s;
+  const dispH = cropState.naturalH * s;
+  cropState.tx = Math.min(0, Math.max(cropState.frameSize - dispW, cropState.tx));
+  cropState.ty = Math.min(0, Math.max(cropState.frameSize - dispH, cropState.ty));
+}
+
+function closeCropModal(){
+  cropBackdrop.classList.remove('open');
+  cropState = null;
+  cropDragStart = null;
+  cropConfirmCallback = null;
+  cropFrame.classList.remove('dragging');
+}
+
+function cropPointerDown(x, y){
+  if(!cropState) return;
+  cropDragStart = { x, y, tx: cropState.tx, ty: cropState.ty };
+  cropFrame.classList.add('dragging');
+}
+function cropPointerMove(x, y){
+  if(!cropDragStart || !cropState) return;
+  cropState.tx = cropDragStart.tx + (x - cropDragStart.x);
+  cropState.ty = cropDragStart.ty + (y - cropDragStart.y);
+  clampCropPosition();
+  applyCropTransform();
+}
+function cropPointerUp(){
+  cropDragStart = null;
+  cropFrame.classList.remove('dragging');
+}
+cropFrame.addEventListener('mousedown', (e) => { e.preventDefault(); cropPointerDown(e.clientX, e.clientY); });
+window.addEventListener('mousemove', (e) => { if(cropDragStart) cropPointerMove(e.clientX, e.clientY); });
+window.addEventListener('mouseup', cropPointerUp);
+cropFrame.addEventListener('touchstart', (e) => {
+  const t = e.touches[0];
+  cropPointerDown(t.clientX, t.clientY);
+}, {passive:true});
+cropFrame.addEventListener('touchmove', (e) => {
+  const t = e.touches[0];
+  cropPointerMove(t.clientX, t.clientY);
+  e.preventDefault();
+}, {passive:false});
+cropFrame.addEventListener('touchend', cropPointerUp);
+
+// Zoom stays centered on whatever's currently in the middle of the circle,
+// rather than zooming from the image's top-left corner.
+cropZoomInput.addEventListener('input', (e) => {
+  if(!cropState) return;
+  const newZoom = parseFloat(e.target.value);
+  const oldS = cropState.baseScale * cropState.zoom;
+  const newS = cropState.baseScale * newZoom;
+  const center = cropState.frameSize / 2;
+  const imgCx = (center - cropState.tx) / oldS;
+  const imgCy = (center - cropState.ty) / oldS;
+  cropState.zoom = newZoom;
+  cropState.tx = center - imgCx * newS;
+  cropState.ty = center - imgCy * newS;
+  clampCropPosition();
+  applyCropTransform();
+});
+
+document.getElementById('cropConfirm').addEventListener('click', () => {
+  if(!cropState) return;
+  const s = cropState.baseScale * cropState.zoom;
+  const scaleFactor = CROP_OUTPUT_SIZE / cropState.frameSize;
+  const canvas = document.createElement('canvas');
+  canvas.width = CROP_OUTPUT_SIZE;
+  canvas.height = CROP_OUTPUT_SIZE;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(
+    cropImageEl,
+    cropState.tx * scaleFactor, cropState.ty * scaleFactor,
+    cropState.naturalW * s * scaleFactor, cropState.naturalH * s * scaleFactor
+  );
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+  const cb = cropConfirmCallback;
+  closeCropModal();
+  if(cb) cb(dataUrl);
+});
+document.getElementById('cropClose').addEventListener('click', closeCropModal);
+document.getElementById('cropCancelBtn').addEventListener('click', closeCropModal);
+cropBackdrop.addEventListener('click', (e) => { if(e.target === cropBackdrop) closeCropModal(); });
+
 let pendingFaceImage = null;
 const avatarPhotoInput = document.getElementById('avatarPhotoInput');
 const avatarPhotoLabel = document.getElementById('avatarPhotoLabel');
 avatarPhotoInput.addEventListener('change', (e) => {
   const file = e.target.files && e.target.files[0];
-  processFacePhotoFile(file, (dataUrl) => {
+  openCropModal(file, (dataUrl) => {
     pendingFaceImage = dataUrl;
     avatarPhotoLabel.style.backgroundImage = `url('${pendingFaceImage}')`;
     avatarPhotoLabel.classList.add('has-photo');
   });
+  avatarPhotoInput.value = '';
 });
 
 // "Add / change photo" button on an already-created avatar (in avatarView).
@@ -3069,7 +3266,7 @@ if(avatarPhotoEditBtn){
 if(avatarPhotoInputEdit){
   avatarPhotoInputEdit.addEventListener('change', (e) => {
     const file = e.target.files && e.target.files[0];
-    processFacePhotoFile(file, (dataUrl) => {
+    openCropModal(file, (dataUrl) => {
       const avatar = getAvatar();
       if(!avatar) return;
       avatar.faceImage = dataUrl;
@@ -3212,6 +3409,11 @@ function render(list){
       if(saved.has(idx)){ saved.delete(idx); btn.classList.remove('saved'); btn.textContent = 'Save'; }
       else { saved.add(idx); btn.classList.add('saved'); btn.textContent = 'Saved'; }
       setStoredSavedSlugs(Array.from(saved).map(i => PRODUCTS[i].slug));
+      // On the Favorites board, the Save state IS the filter criterion, so
+      // unsaving a pin here should drop it from view immediately rather
+      // than leaving a stale "unsaved" card sitting on the board.
+      const activeCatNow = document.querySelector('.cat-pill.active').dataset.filter;
+      if(activeCatNow === 'favorites') applyFilters();
     });
   });
 
@@ -3296,7 +3498,13 @@ function applyFilters(){
     // Skip non-canonical gated twins on "All" for products that have more than
     // one gated twin — otherwise they'd show up twice (see ALL_VIEW_CANONICAL_CAT).
     if(p.exoticsLinked && activeCat === 'all' && ALL_VIEW_CANONICAL_CAT[p.name] && !p.cats.includes(ALL_VIEW_CANONICAL_CAT[p.name])) return false;
-    const matchCat = activeCat === 'all' || p.cats.includes(activeCat);
+    // Favorites isn't a real product category — it's a live view over
+    // whatever's currently in the `saved` set (see the Save button logic
+    // below), so it reuses this same filter pipeline instead of a parallel
+    // rendering path.
+    const matchCat = activeCat === 'all' ? true
+      : activeCat === 'favorites' ? saved.has(PRODUCTS.indexOf(p))
+      : p.cats.includes(activeCat);
     const catLabels = p.cats.map(c => (CATEGORY_LABELS[c] || c).toLowerCase()).join(' ');
     const matchQ = !q
       || p.name.toLowerCase().includes(q)
@@ -3305,12 +3513,16 @@ function applyFilters(){
       || catLabels.includes(q);
     return matchCat && matchQ;
   });
+  emptyState.textContent = (activeCat === 'favorites' && !q)
+    ? "You haven't saved anything yet. Tap Save on any pin to add it here."
+    : "No pins match that search. Try another term.";
   render(filtered);
 }
 
 function activatePill(btn){
   document.querySelectorAll('.cat-pill').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  document.getElementById('navFavorites').classList.toggle('active', btn.dataset.filter === 'favorites');
   applyFilters();
   // Switching categories rebuilds the grid to a different length, but the
   // browser keeps whatever scroll position the visitor was already at. If
@@ -3360,6 +3572,12 @@ document.getElementById('navSearch').addEventListener('click', () => {
 });
 document.getElementById('navAdd').addEventListener('click', () => openInfo('contribute'));
 document.getElementById('navMessages').addEventListener('click', () => openInfo('messages'));
+document.getElementById('navFavorites').addEventListener('click', () => {
+  document.getElementById('searchInput').value = '';
+  activatePill(document.getElementById('favoritesPill'));
+  document.getElementById('searchWrap').classList.remove('open');
+  window.scrollTo({top:0, behavior:'smooth'});
+});
 document.getElementById('navProfile').addEventListener('click', () => openAvatarPanel());
 
 /* ---------- Modal ---------- */
