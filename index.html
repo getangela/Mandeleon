@@ -815,8 +815,21 @@
     width:100%; padding:12px 14px; border:1px solid var(--border); border-radius:8px;
     font-size:15px; box-sizing:border-box; font-family:inherit;
   }
+  .avatar-photo-picker{text-align:center; margin:0 0 18px;}
+  .avatar-photo-label{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:84px; height:84px; border-radius:50%; background:#f4f4f4;
+    border:2px dashed var(--border); cursor:pointer; overflow:hidden;
+    background-size:cover; background-position:center; transition:border-color .15s;
+  }
+  .avatar-photo-label:hover{border-color:var(--ink);}
+  .avatar-photo-label.has-photo{border-style:solid; border-color:var(--ink);}
+  .avatar-photo-label.has-photo .avatar-photo-placeholder{display:none;}
+  .avatar-photo-placeholder{font-size:26px; color:#aaa;}
+  .avatar-photo-hint{font-size:12px; color:var(--ink-soft); margin:8px 0 0; line-height:1.4;}
   .avatar-view{padding:4px 2px 2px;}
-  .avatar-visual{font-size:60px; text-align:center; margin-bottom:4px;}
+  .avatar-visual{display:flex; align-items:center; justify-content:center; margin-bottom:4px;}
+  .avatar-visual svg{width:140px; height:160px; max-width:100%;}
   .avatar-view h2{text-align:center; margin:0 0 4px; font-size:21px;}
   .avatar-vitality-label{text-align:center; font-size:13px; color:var(--ink-soft); margin:0 0 20px;}
   .avatar-meters{display:flex; flex-direction:column; gap:14px;}
@@ -1364,13 +1377,20 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
           <div class="avatar-setup-icon">🐣</div>
           <h2>Name Your Avatar</h2>
           <p class="desc">Your avatar shares your Mandeleon journey. Fuel its longevity with picks from the stack. Neglect it, and it'll show. Get started and see where you land against the rest of the community.</p>
+          <div class="avatar-photo-picker">
+            <label for="avatarPhotoInput" class="avatar-photo-label" id="avatarPhotoLabel">
+              <span class="avatar-photo-placeholder">📷</span>
+            </label>
+            <input type="file" id="avatarPhotoInput" accept="image/*" hidden>
+            <p class="avatar-photo-hint">Add a photo to personalize your avatar's face (optional)</p>
+          </div>
           <form id="avatarNameForm">
             <input type="text" id="avatarNameInput" placeholder="Give it a name..." maxlength="30" required>
             <button type="submit" class="shop-btn" style="width:100%; margin-top:10px;">Create My Avatar</button>
           </form>
         </div>
         <div id="avatarView" class="avatar-view" hidden>
-          <div class="avatar-visual" id="avatarVisual">🐣</div>
+          <div class="avatar-visual" id="avatarVisual"></div>
           <h2 id="avatarModalTitle"></h2>
           <p class="avatar-vitality-label" id="avatarVitalityLabel"></p>
           <div class="avatar-meters" id="avatarMeters"></div>
@@ -1895,7 +1915,7 @@ function saveAvatar(avatar){
   try{ localStorage.setItem(AVATAR_KEY, JSON.stringify(avatar)); }
   catch(e){ /* storage unavailable — avatar just won't persist this session */ }
 }
-function createAvatar(name){
+function createAvatar(name, faceImage){
   const today = todayStr();
   const meters = {};
   Object.keys(METER_CONFIG).forEach(k => { meters[k] = 50; });
@@ -1907,7 +1927,8 @@ function createAvatar(name){
     today: today,
     feedCounts: {},         // { slug: timesFedToday } — resets daily
     dailyGain: {},          // { meterKey: pointsGainedToday } — resets daily, enforces the cap
-    everFed: []             // permanent — every slug ever fed, for the one-time discovery bonus
+    everFed: [],            // permanent — every slug ever fed, for the one-time discovery bonus
+    faceImage: faceImage || null  // optional user photo, cropped+compressed client-side — see Section 5 of the spec
   };
   saveAvatar(avatar);
   return avatar;
@@ -2016,6 +2037,62 @@ function renderAvatarMeters(avatar){
   }).join('');
 }
 
+// Overall vitality state — average of all 8 meters, per Section 4/5 of the
+// spec. Deliberately the AVERAGE here (not the weakest-meter rule used for
+// the biological-age number) so one neglected category alone can't drag the
+// whole body into a frail look while everything else is thriving. Only the
+// first three tiers are wired up in this Phase 1 slice — full Coma (the
+// 72-hour countdown + Revival flow) is a separate, not-yet-built mechanic.
+function getAvatarVitalityTier(avatar){
+  const values = Object.values(avatar.meters);
+  const avg = values.reduce((a, b) => a + b, 0) / values.length;
+  if(avg >= 50) return 'thriving';
+  if(avg >= 25) return 'struggling';
+  return 'withering';
+}
+
+// One simple flat/vector body per vitality tier (see Section 5 of
+// gamification-spec.md) — posture, color, and a couple of decorative
+// details change per tier, all applied live via CSS so nothing about the
+// user's uploaded photo is ever permanently altered.
+const BODY_TIER_STYLE = {
+  thriving:   { rotate: 0,  filter: 'none',                             sparkle: true,  torsoFill: '#e8730c', limbFill: '#c9622d' },
+  struggling: { rotate: 6,  filter: 'saturate(.55) brightness(.92)',    sparkle: false, torsoFill: '#c98a5c', limbFill: '#af7648' },
+  withering:  { rotate: 14, filter: 'grayscale(.75) brightness(.78)',   sparkle: false, torsoFill: '#9c9187', limbFill: '#82786f' }
+};
+
+function renderAvatarBody(avatar){
+  const container = document.getElementById('avatarVisual');
+  if(!container) return;
+  const tier = getAvatarVitalityTier(avatar);
+  const style = BODY_TIER_STYLE[tier];
+  // The uploaded photo (if any) is clipped into the head circle as-is —
+  // aging is a live CSS filter on the whole body group, never baked into
+  // the stored image. No photo falls back to a simple drawn face whose
+  // smile also droops a little outside the Thriving tier.
+  const faceMarkup = avatar.faceImage
+    ? `<image href="${avatar.faceImage}" x="46" y="16" width="68" height="68" clip-path="url(#avatarFaceClip)" preserveAspectRatio="xMidYMid slice"/>`
+    : `<circle cx="80" cy="50" r="34" fill="#ffe0b2"/>
+       <circle cx="68" cy="46" r="3.5" fill="#4a3728"/>
+       <circle cx="92" cy="46" r="3.5" fill="#4a3728"/>
+       <path d="M 66 60 Q 80 ${tier === 'thriving' ? 70 : 62} 94 60" stroke="#4a3728" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+  container.innerHTML = `
+    <svg viewBox="0 0 160 180" width="140" height="160" role="img" aria-label="Avatar looking ${tier}">
+      <defs><clipPath id="avatarFaceClip"><circle cx="80" cy="50" r="34"/></clipPath></defs>
+      <g transform="rotate(${style.rotate} 80 130)" style="filter:${style.filter}; transition:filter .5s ease, transform .5s ease;">
+        <ellipse cx="80" cy="150" rx="16" ry="10" fill="${style.limbFill}"/>
+        <ellipse cx="112" cy="150" rx="16" ry="10" fill="${style.limbFill}"/>
+        <rect x="52" y="78" width="56" height="66" rx="26" fill="${style.torsoFill}"/>
+        <ellipse cx="40" cy="100" rx="11" ry="20" fill="${style.limbFill}"/>
+        <ellipse cx="120" cy="100" rx="11" ry="20" fill="${style.limbFill}"/>
+        <circle cx="80" cy="50" r="36" fill="#fff"/>
+        ${faceMarkup}
+        <circle cx="80" cy="50" r="34" fill="none" stroke="#fff" stroke-width="3"/>
+      </g>
+      ${style.sparkle ? `<circle cx="34" cy="26" r="3" fill="#ffd166"/><circle cx="128" cy="34" r="2.4" fill="#ffd166"/><circle cx="122" cy="70" r="2" fill="#ffd166"/>` : ''}
+    </svg>`;
+}
+
 const avatarBackdrop = document.getElementById('avatarBackdrop');
 function openAvatarPanel(){
   const avatar = getAvatar();
@@ -2027,6 +2104,7 @@ function openAvatarPanel(){
     document.getElementById('avatarView').hidden = false;
     document.getElementById('avatarModalTitle').textContent = avatar.name;
     document.getElementById('avatarVitalityLabel').textContent = `Birthdate: ${formatBirthdate(avatar.createdAt)}`;
+    renderAvatarBody(avatar);
     renderAvatarMeters(avatar);
   } else {
     document.getElementById('avatarSetup').hidden = false;
@@ -2037,12 +2115,46 @@ function openAvatarPanel(){
 function closeAvatarPanel(){ avatarBackdrop.classList.remove('open'); }
 document.getElementById('avatarClose').addEventListener('click', closeAvatarPanel);
 avatarBackdrop.addEventListener('click', (e) => { if(e.target === avatarBackdrop) closeAvatarPanel(); });
+// Optional face photo, captured on the naming screen before the avatar
+// exists yet. Cropped to a centered square, downscaled, and re-compressed
+// client-side so the stored data URL stays small (localStorage-friendly) —
+// see Section 5 of gamification-spec.md.
+let pendingFaceImage = null;
+const avatarPhotoInput = document.getElementById('avatarPhotoInput');
+const avatarPhotoLabel = document.getElementById('avatarPhotoLabel');
+avatarPhotoInput.addEventListener('change', (e) => {
+  const file = e.target.files && e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const img = new Image();
+    img.onload = () => {
+      const size = Math.min(img.width, img.height);
+      const sx = (img.width - size) / 2;
+      const sy = (img.height - size) / 2;
+      const canvas = document.createElement('canvas');
+      canvas.width = 200;
+      canvas.height = 200;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, sx, sy, size, size, 0, 0, 200, 200);
+      pendingFaceImage = canvas.toDataURL('image/jpeg', 0.82);
+      avatarPhotoLabel.style.backgroundImage = `url('${pendingFaceImage}')`;
+      avatarPhotoLabel.classList.add('has-photo');
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
 document.getElementById('avatarNameForm').addEventListener('submit', (e) => {
   e.preventDefault();
   const input = document.getElementById('avatarNameInput');
   const name = input.value.trim();
   if(!name) return;
-  createAvatar(name);
+  createAvatar(name, pendingFaceImage);
+  pendingFaceImage = null;
+  avatarPhotoLabel.style.backgroundImage = '';
+  avatarPhotoLabel.classList.remove('has-photo');
   openAvatarPanel();
 });
 
@@ -2407,6 +2519,12 @@ function performFeed(idx, opts){
   showFeedToast(result.isPerfect ? `✨ Perfect Feed! ${gainText}` : gainText, result.isPerfect);
   if(currentModalIdx === idx){
     document.getElementById('modalFeedBtn').textContent = `🍽️ Feed ${avatar.name}`;
+  }
+  // Keep the avatar's body art in sync immediately, in case this feed
+  // pushed it across a vitality-tier threshold (Thriving/Struggling/
+  // Withering) while its panel happens to be open behind the modal.
+  if(!document.getElementById('avatarView').hidden){
+    renderAvatarBody(getAvatar());
   }
 }
 
