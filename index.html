@@ -1359,7 +1359,7 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
         <div id="avatarSetup" class="avatar-setup">
           <div class="avatar-setup-icon">🐣</div>
           <h2>Name Your Avatar</h2>
-          <p class="desc">Your avatar lives alongside you as you browse Mandeleon. Feed it real tiles from the site to keep it healthy — neglect it, and it'll show.</p>
+          <p class="desc">Your avatar shares your Mandeleon journey. Fuel its longevity with picks from the stack. Neglect it, and it'll show. Get started and see where you land against the rest of the community.</p>
           <form id="avatarNameForm">
             <input type="text" id="avatarNameInput" placeholder="Give it a name..." maxlength="30" required>
             <button type="submit" class="shop-btn" style="width:100%; margin-top:10px;">Create My Avatar</button>
@@ -1852,11 +1852,11 @@ const METER_CONFIG = {
   sleep:  { label:'Sleep & Stress',           icon:'😴', decay:12, base:18, cap:30 },
   energy: { label:'Energy & Cellular Repair', icon:'⚡', decay:10, base:16, cap:27 },
   brain:  { label:'Brain',                    icon:'🧠', decay:8,  base:14, cap:24 },
-  gut:    { label:'Gut & Liver',              icon:'🍃', decay:8,  base:14, cap:24 },
+  gut:    { label:'Gut & Liver',              icon:'🦠', decay:8,  base:14, cap:24 },
   heart:  { label:'Heart',                    icon:'❤️', decay:7,  base:12, cap:20 },
   immune: { label:'Immune & Defense',         icon:'🛡️', decay:6,  base:10, cap:17 },
   muscle: { label:'Muscle & Hormones',        icon:'💪', decay:6,  base:10, cap:17 },
-  skin:   { label:'Skin',                     icon:'✨', decay:5,  base:8,  cap:14 }
+  skin:   { label:'Skin',                     icon:'🪞', decay:5,  base:8,  cap:14 }
 };
 
 // Maps real site categories onto the meter they feed. Categories not listed
@@ -1874,6 +1874,11 @@ const CATEGORY_TO_METER = {
 };
 
 function todayStr(){ return new Date().toISOString().slice(0,10); }
+function formatBirthdate(dateStr){
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  return dt.toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
+}
 
 function getAvatar(){
   try{
@@ -2016,7 +2021,7 @@ function openAvatarPanel(){
     document.getElementById('avatarSetup').hidden = true;
     document.getElementById('avatarView').hidden = false;
     document.getElementById('avatarModalTitle').textContent = avatar.name;
-    document.getElementById('avatarVitalityLabel').textContent = `Avatar since ${avatar.createdAt}`;
+    document.getElementById('avatarVitalityLabel').textContent = `Birthdate: ${formatBirthdate(avatar.createdAt)}`;
     renderAvatarMeters(avatar);
   } else {
     document.getElementById('avatarSetup').hidden = false;
