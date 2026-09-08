@@ -632,9 +632,13 @@
     font-weight:700; font-size:13px;
   }
   .save-btn.saved{background:var(--ink);}
-  .overlay-bottom{display:flex; justify-content:flex-end;}
+  .overlay-bottom{display:flex; justify-content:space-between; align-items:flex-end; gap:8px;}
   .visit-btn{
     background:#fff; color:var(--ink); border:none; padding:9px 12px; border-radius:20px;
+    font-weight:700; font-size:12px; display:flex; align-items:center; gap:4px;
+  }
+  .feed-card-btn{
+    background:var(--ink); color:#fff; border:none; padding:9px 12px; border-radius:20px;
     font-weight:700; font-size:12px; display:flex; align-items:center; gap:4px;
   }
 
@@ -1697,6 +1701,7 @@ function performAction(action){
     window.open(p.link, '_blank', 'noopener');
   }
   else if(action.type === 'exotics'){ requestExoticsAccess(action.btn); }
+  else if(action.type === 'feed'){ performFeed(action.idx); }
 }
 
 // Exotics is double-gated: email first, then the 18+/disclaimer notice.
@@ -2096,6 +2101,7 @@ function render(list){
       && !((p.cats.includes('diet') || p.cats.includes('inspiration') || p.cats.includes('exotics') || p.exoticsLinked) && p.link === '#')
       && (p.affiliate === true || p.affiliate === false);
     const isClickable = isVideo || isArticle || hasAffiliatePill;
+    const feedableMeters = getFeedableMeters(p);
     card.className = 'pin-card' + (!isClickable ? ' no-click' : '');
     const visualStyle = isVideo
       ? `background:#000 url('https://img.youtube.com/vi/${p.youtubeId}/hqdefault.jpg') center/cover no-repeat`
@@ -2112,7 +2118,12 @@ function render(list){
             <button class="save-btn ${saved.has(idx)?'saved':''}" data-save="${idx}">${saved.has(idx)?'Saved':'Save'}</button>
           </div>
           <div class="overlay-bottom">
-            ${isClickable ? `<button class="visit-btn" data-visit="${idx}">↗ Visit</button>` : ''}
+            <div class="overlay-bottom-left">
+              ${feedableMeters.length > 0 ? `<button class="feed-card-btn" data-feed="${idx}">🍽️ Feed</button>` : ''}
+            </div>
+            <div class="overlay-bottom-right">
+              ${isClickable ? `<button class="visit-btn" data-visit="${idx}">↗ Visit</button>` : ''}
+            </div>
           </div>
         </div>
       </div>
@@ -2160,6 +2171,20 @@ function render(list){
       const isGated = (p.exoticsLinked && !exoticsUnlocked) || (p.cats.includes('exotics') && !(activeCatNow === 'exotics' && exoticsUnlocked));
       if(isGated){ requestExoticsAccess(document.getElementById('exoticsPill')); }
       else{ requestAccess({type:'visit', idx}); }
+    });
+  });
+
+  // wire up "Feed" pills directly on the grid tile — same gating rules as
+  // Visit (email gate, then exotics gate for cross-listed items), but the
+  // action itself just updates the local avatar, no external navigation.
+  grid.querySelectorAll('.feed-card-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.feed, 10);
+      const p = PRODUCTS[idx];
+      const isGated = (p.exoticsLinked && !exoticsUnlocked) || (p.cats.includes('exotics') && !(activeCatNow === 'exotics' && exoticsUnlocked));
+      if(isGated){ requestExoticsAccess(document.getElementById('exoticsPill')); }
+      else{ requestAccess({type:'feed', idx}); }
     });
   });
 }
@@ -2362,12 +2387,15 @@ function closeModal(){
 document.getElementById('modalClose').addEventListener('click', closeModal);
 modalBackdrop.addEventListener('click', (e) => { if(e.target === modalBackdrop) closeModal(); });
 
-document.getElementById('modalFeedBtn').addEventListener('click', () => {
-  if(currentModalIdx === null) return;
-  const p = PRODUCTS[currentModalIdx];
+// Shared by both the modal's Feed button and the Feed pill on each grid
+// tile — feeds the given product's meters (or routes to avatar creation
+// if none exists yet) and shows the result toast either way.
+function performFeed(idx, opts){
+  opts = opts || {};
+  const p = PRODUCTS[idx];
   const avatar = getAvatar();
   if(!avatar){
-    closeModal();
+    if(opts.closeModalFirst){ closeModal(); }
     openAvatarPanel();
     return;
   }
@@ -2377,7 +2405,14 @@ document.getElementById('modalFeedBtn').addEventListener('click', () => {
     .map(r => `+${Math.round(r.gain * 10) / 10} ${METER_CONFIG[r.key].label}`)
     .join(', ');
   showFeedToast(result.isPerfect ? `✨ Perfect Feed! ${gainText}` : gainText, result.isPerfect);
-  document.getElementById('modalFeedBtn').textContent = `🍽️ Feed ${avatar.name}`;
+  if(currentModalIdx === idx){
+    document.getElementById('modalFeedBtn').textContent = `🍽️ Feed ${avatar.name}`;
+  }
+}
+
+document.getElementById('modalFeedBtn').addEventListener('click', () => {
+  if(currentModalIdx === null) return;
+  performFeed(currentModalIdx, {closeModalFirst:true});
 });
 
 document.getElementById('modalCopyLink').addEventListener('click', async () => {
