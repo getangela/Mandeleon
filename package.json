@@ -1,0 +1,9 @@
+{
+  "name": "mandeleon",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Mandeleon — backend for Visitor Accounts (Netlify Functions + Netlify Database). The site itself (index.html) stays a plain static file; this only supports the serverless functions in netlify/functions.",
+  "dependencies": {
+    "@netlify/database": "^1.0.0"
+  }
+}

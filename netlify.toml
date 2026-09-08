@@ -1,0 +1,13 @@
+# Mandeleon deploys the same way it always has — index.html and the other
+# static files at the repo root, published as-is. This file only adds the
+# serverless-functions piece for Visitor Accounts; it does not turn the site
+# into a build project. Netlify will still run `npm install` automatically
+# (because package.json exists) so the functions below have @netlify/database
+# available, but no build command runs against index.html itself.
+
+[build]
+  publish = "."
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"

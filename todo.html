@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mandeleon — Post-Launch To-Do List</title>
+<style>
+  :root{
+    --red:#e63946; --red-dark:#c62839; --ink:#1a1a1a; --ink-soft:#666;
+    --paper:#fff; --bg:#f7f7f7; --border:#e8e8e8;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--ink); line-height:1.5;
+  }
+  .wrap{max-width:760px; margin:0 auto; padding:40px 24px 80px;}
+  header{margin-bottom:36px;}
+  h1{font-size:28px; margin:0 0 6px;}
+  .subtitle{color:var(--ink-soft); font-size:15px; margin:0 0 4px;}
+  .meta{color:#999; font-size:13px;}
+  .trigger-note{
+    background:#fff4f4; border:1px solid #f5c6cb; color:#8a1f2b;
+    padding:14px 16px; border-radius:10px; font-size:14px; margin:22px 0 34px;
+  }
+  section{margin-bottom:34px;}
+  h2{
+    font-size:16px; text-transform:uppercase; letter-spacing:.5px; color:var(--ink);
+    border-bottom:2px solid var(--ink); padding-bottom:8px; margin:0 0 16px;
+  }
+  ul{list-style:none; margin:0; padding:0;}
+  li{
+    display:flex; align-items:flex-start; gap:10px; padding:10px 0;
+    border-bottom:1px solid var(--border); font-size:14.5px;
+  }
+  li:last-child{border-bottom:none;}
+  .box{
+    flex-shrink:0; width:18px; height:18px; border:2px solid #ccc; border-radius:4px;
+    margin-top:2px;
+  }
+  .item-text b{display:block; font-weight:700; margin-bottom:2px;}
+  .item-text span{color:var(--ink-soft); font-size:13.5px;}
+  .item-text code{background:#f0f0f0; padding:1px 5px; border-radius:4px; font-size:12.5px;}
+  .tag{
+    display:inline-block; font-size:10.5px; font-weight:800; text-transform:uppercase;
+    letter-spacing:.3px; padding:2px 8px; border-radius:10px; margin-left:6px;
+    vertical-align:middle;
+  }
+  .tag.optional{background:#eee; color:#777;}
+  .tag.needs-input{background:#fdf1e0; color:#a06a1c;}
+  .tag.done{background:#e3f7e8; color:#1f7a3d;}
+  li.is-done{opacity:.65;}
+  li.is-done .item-text b{text-decoration:line-through; text-decoration-color:#999;}
+  .box.checked{
+    background:#1f7a3d; border-color:#1f7a3d; color:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800;
+  }
+  footer{margin-top:40px; padding-top:20px; border-top:1px solid var(--border); color:#999; font-size:13px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Mandeleon — Post-Launch To-Do List</h1>
+    <p class="subtitle">Everything we've agreed to build or revisit once the site has real hosting.</p>
+    <p class="meta">Last updated: September 8, 2026</p>
+  </header>
+
+  <p class="trigger-note">
+    This list activates once mandeleon.com is live on real hosting. Nothing here blocks
+    launch — these are the follow-up items we've deliberately deferred because they need a real
+    domain, a real host, or a decision only you can make about hosting.
+  </p>
+
+  <section>
+    <h2>⚠️ Before going live (blocks launch)</h2>
+    <ul>
+      <li class="is-done">
+        <div class="box checked">✓</div>
+        <div class="item-text"><b>Restore the Exotics 18+/disclaimer gate <span class="tag done">Done</span></b>
+        <span><code>exoticsUnlocked</code> is back to defaulting to <code>false</code>, and the 🔒 lock icon is back on the Exotics pill. Every visitor goes through the age/disclaimer confirmation again, every visit — this one is intentionally not remembered, unlike the email gate below.</span></div>
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Site infrastructure (needs real hosting)</h2>
+    <ul>
+      <li class="is-done">
+        <div class="box checked">✓</div>
+        <div class="item-text"><b>Wire real Formspree endpoint IDs <span class="tag done">Done</span></b>
+        <span>Resolved a different way: both the email-capture gate and the contact form were converted to Netlify Forms instead — a native Netlify feature, so no third-party service or endpoint IDs are needed at all.</span></div>
+      </li>
+      <li class="is-done">
+        <div class="box checked">✓</div>
+        <div class="item-text"><b>"Remember returning visitor" persistence <span class="tag done">Done</span></b>
+        <span>The email gate now uses localStorage to remember a visitor has already unlocked the stack, so they won't be asked for their email again on future visits (same browser, same device). This only covers the email gate — the Exotics age/disclaimer confirmation is deliberately still asked every visit.</span></div>
+      </li>
+      <li class="is-done">
+        <div class="box checked">✓</div>
+        <div class="item-text"><b>Persist the Save/favorites feature <span class="tag done">Done</span></b>
+        <span>Saved tiles now persist across visits via localStorage, keyed by each product's stable slug (so it survives future reordering/additions). The fuller version — organizing saves into personal boards — is still tracked separately below under "User accounts &amp; personal boards."</span></div>
+      </li>
+      <li class="is-done">
+        <div class="box checked">✓</div>
+        <div class="item-text"><b>sitemap.xml and robots.txt <span class="tag done">Done</span></b>
+        <span>Both files are in the project folder alongside index.html, pointing at mandeleon.com. Since the whole site is one self-contained page (all filtering happens client-side, nothing is a separate crawlable URL), the sitemap intentionally lists just the one homepage URL — that's correct and complete, not a placeholder. Upload both files to the root of your GitHub repo (same level as index.html) so Netlify serves them at mandeleon.com/sitemap.xml and mandeleon.com/robots.txt.</span></div>
+      </li>
+      <li class="is-done">
+        <div class="box checked">✓</div>
+        <div class="item-text"><b>Real analytics integration <span class="tag done">Done</span></b>
+        <span>Google Analytics (Measurement ID G-GJREMBYVFS) is wired into the site's &lt;head&gt;. Once this is uploaded and live, check Reports &gt; Realtime in your Google Analytics dashboard to confirm visits are coming through.</span></div>
+      </li>
+      <li>
+        <div class="box"></div>
+        <div class="item-text"><b>Share options (text, email, social platforms)</b>
+        <span>Let visitors share any product, video, or article tile via text message, email, or to social platforms (Facebook, X, etc.) — using native share sheets on mobile and/or platform share links on desktop. The Copy Link button already works today, but real sharing only makes sense once tiles have a real public URL to share, so this needs the live domain.</span></div>
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Content</h2>
+    <ul>
+      <li class="is-done">
+        <div class="box checked">✓</div>
+        <div class="item-text"><b>Add your real product and affiliate links <span class="tag done">Done</span></b>
+        <span>Checked the live data: 117 of 119 tiles now have real URLs and a set affiliate status (the 8 prescription-strength creams under Topicals/Exotics — Tretinoin, Bimatoprost, Placenta Cream, Estriol Cream — are correctly left without a shoppable link on purpose, same as other Exotics items). Two still show "#": <b>Raw Fermented Foods</b> and <b>Exercise</b>, both marked non-affiliate — these read like general behavior recommendations rather than a single product, so they may be intentionally link-less like Diet-category items, but flagging them in case you meant to send a specific product/program link for either.</span></div>
+      </li>
+      <li>
+        <div class="box"></div>
+        <div class="item-text"><b>Add your real YouTube videos</b>
+        <span>Two placeholder video tiles are live now to show how the feature works. Send titles, YouTube links, and which category each fits, and I'll swap them in.</span></div>
+      </li>
+      <li>
+        <div class="box"></div>
+        <div class="item-text"><b>Add your real Cutting Edge content (videos + articles)</b>
+        <span>Cutting Edge currently has two placeholder-style videos and no article tile yet. Send real YouTube links and article URLs covering experimental anti-aging science/tech, and I'll swap them in.</span></div>
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Content management</h2>
+    <ul>
+      <li class="is-done">
+        <div class="box checked">✓</div>
+        <div class="item-text"><b>Decide on a hosting platform <span class="tag done">Done</span></b>
+        <span>Decided: staying on Netlify (with GitHub for the repo), upgrading the Netlify plan as needed. The admin dashboard, visitor accounts, and personal boards below will be built using Netlify's own Database (Postgres, via Neon) and Netlify Functions for the backend, plus Netlify Identity (or the Auth0 extension, if more advanced login features are ever needed) for accounts — keeping everything under one platform instead of adding a separate service like Supabase or Firebase.</span></div>
+      </li>
+      <li class="is-done">
+        <div class="box checked">✓</div>
+        <div class="item-text"><b>Refresh the stale SEO structured data (JSON-LD) <span class="tag done">Done</span></b>
+        <span>Regenerated directly from the live PRODUCTS list — now lists all 119 current items (up from the old 72, several of which were stale placeholder names) with correct names and deep-link URLs. Verified the URLs actually resolve to the right product modal. Doesn't affect what visitors see — only what search engines index.</span></div>
+      </li>
+      <li>
+        <div class="box"></div>
+        <div class="item-text"><b>Build a real admin dashboard</b>
+        <span>Log in and add/edit/delete tiles with no code — covers every tile type on the site, including products, videos, and articles (so this is what will let you add Cutting Edge content yourself once it's built). Requires a backend and a database, so it's a bigger project planned around whichever host you pick. (Until then, adding tiles means editing index.html directly — see the "Add a Tile" helper option below if you want it sooner.)</span></div>
+      </li>
+      <li class="is-done">
+        <div class="box checked">✓</div>
+        <div class="item-text"><b>"Add a Tile" code-generator form <span class="tag done">Done</span></b>
+        <span><code>tile-generator.html</code> is now in your project folder alongside index.html — a standalone form (no hosting needed) that generates the exact code snippet for any tile type (product, video, or article, including Cutting Edge), with a live preview as you fill it out, category checkboxes, image upload (embedded as base64 automatically), YouTube URL parsing, and a Copy Code button. For a Gadgets product it also offers to generate the matching <code>GADGET_METER_BY_NAME</code> line so the new tile can feed the avatar right away. Paste the generated snippet into the <code>PRODUCTS</code> array in index.html, or send it to me and I'll drop it in.</span></div>
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>User accounts &amp; personal boards</h2>
+    <ul>
+      <li>
+        <div class="box"></div>
+        <div class="item-text"><b>Visitor accounts (sign up / log in) <span class="tag needs-input">Code written, needs deploy + setup</span></b>
+        <span>Built: a Postgres schema (Netlify Database/Neon) with <code>users</code>, <code>avatars</code>, and <code>saved_tiles</code> tables; five Netlify Functions (<code>avatar-get</code>, <code>avatar-save</code>, <code>tiles-sync</code>, <code>claim-avatar</code>, <code>avatar-name-check</code>) enforcing globally-unique avatar names; and Netlify Identity wired into the avatar panel (log in/sign up/log out row, plus an optional "bring your existing avatar into this account?" prompt for anyone who already had one on their device — declining starts a clean, account-linked avatar instead). Guests who never log in are completely unaffected — the avatar and favorites board still work exactly as before, purely in localStorage. Verified locally: the SQL migration runs clean, and every login/claim/decline/name-clash code path was tested against a mocked backend with no errors. What's still needed from you before it's actually live: upload the new files (<code>package.json</code>, <code>netlify.toml</code>, <code>.gitignore</code>, and everything under <code>netlify/</code>) alongside the updated <code>index.html</code>, then click <b>Enable Identity</b> once in Netlify's dashboard under Site settings → Identity (that one toggle can't be done for you through the connectors). After that, personal boards below can build on this directly.</span></div>
+      </li>
+      <li>
+        <div class="box"></div>
+        <div class="item-text"><b>Personal boards (Pinterest-style)</b>
+        <span>Once logged in, visitors create their own named boards and save any product, video, or article on the site into them — organizing and revisiting their favorites anytime, the same way Pinterest boards work. Builds on top of visitor accounts above.</span></div>
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Gamification / Engagement <span class="tag optional">Optional, needs accounts</span></h2>
+    <ul>
+      <li>
+        <div class="box"></div>
+        <div class="item-text"><b>Virtual "Mandeleon" avatar system</b>
+        <span>A Tamagotchi-style personal avatar visitors name and keep healthy by "feeding" it real product, video, and article tiles from the site. Health meters map to your actual categories (Brain, Sleep &amp; Stress, Energy &amp; Cellular Repair, Heart, Gut &amp; Liver, Immune &amp; Defense, Muscle &amp; Hormones, Skin), decay daily, and are restored by browsing and feeding. Core mechanics (decay rates, feed values, daily caps, discovery and affiliate bonuses) are built and live, along with creation, leveling, vitality tiers, Health/Pool status, biological age, and the adjustable photo crop. Both polish details originally flagged for later are also now done: (1) a subtle green glow around the avatar when most (not all) meters are green — a milder everyday version of the golden Peak glow, which still only fires when every meter is maxed — and (2) a confetti burst alongside the existing "✨ Perfect Feed!" toast for the random bonus-feed moments. The one piece still genuinely outstanding is the <b>global leaderboard</b> comparing everyone's avatar (Cohort Pools, Section 8 of the gamification spec) — that needs the visitor accounts/database work above, since it requires seeing other people's avatars.</span></div>
+      </li>
+      <li>
+        <div class="box"></div>
+        <div class="item-text"><b>Create and provide a full ladder of avatar poses <span class="tag needs-input">Waiting on your art</span></b>
+        <span><b>Confirmed: 5 poses to start</b> — Peak (celebratory/flexing), Thriving, Struggling, Withering, and Coma — more can be added later (e.g. splitting a tier into two, or adding in-between steps) once the base ladder is live. Trigger logic already exists for the first four and needs no further decisions: Peak needs every single one of the 8 health meters (Sleep &amp; Stress, Energy &amp; Cellular Repair, Brain, Gut &amp; Liver, Heart, Immune &amp; Defense, Muscle &amp; Hormones, Skin) individually maxed at 100 — not just a high average, so one neglected category still holds it back; Thriving/Struggling/Withering key off the average of all 8 meters (≥50 / 25–49 / &lt;25). Coma is a planned-but-not-yet-built state (72-hour no-feed countdown reaching zero, per the gamification spec) — its trigger will need to be wired up alongside its pose. You're providing the artwork whenever it's ready — no rush. For each pose to drop in cleanly next to the current single illustration, it should be: (1) same character, clothing, and art style as the existing avatar (so switching poses doesn't look like a different character), (2) a transparent-background PNG like the current one, (3) roughly the same canvas proportions as the current art (616×536) so the existing head-photo-overlay positioning still lines up without recalculating, and (4) named or labeled by tier (peak / thriving / struggling / withering / coma) so they're easy to wire in. Once poses arrive, the code also needs a small restructure — swapping in a different image per tier instead of one image + CSS filters/rotate — which I'll handle on my end.</span></div>
+      </li>
+      <li>
+        <div class="box"></div>
+        <div class="item-text"><b>Avatar photo moderation/approval structure</b>
+        <span>Today, a visitor's uploaded avatar face photo lives only in their own browser (localStorage) and is never seen by anyone else, so there's nothing to moderate yet. That changes once avatars move to a shared backend for cross-device sync and the Cohort Pools leaderboard — the point where other visitors can actually see each other's avatars. At that point, uploaded photos need a real review structure before (or immediately after) they're visible to others: e.g. a "Pending" state on any new/changed photo until approved, reusing the same Pending Submissions admin queue and Approve/Reject pattern already planned for product/content submissions, plus a post-publish "flag this photo" safety net for the community to surface anything missed. Tied to the Foundation-phase Track A milestone (avatar state + face images moving to backend storage) in the gamification spec — not a Phase 1 concern since no one else can see these photos yet.</span></div>
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Legal &amp; compliance</h2>
+    <ul>
+      <li>
+        <div class="box"></div>
+        <div class="item-text"><b>Have a lawyer review the legal pages</b>
+        <span>The Privacy Policy, Terms of Service, and Affiliate Disclosure are unreviewed templates I drafted — they should be checked by a lawyer before the site goes live, especially given the Exotics category content.</span></div>
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Nice-to-have / strategic <span class="tag optional">Optional</span></h2>
+    <ul>
+      <li>
+        <div class="box"></div>
+        <div class="item-text"><b>Build out the real "Contribute" flow</b>
+        <span>The header button currently shows a "coming soon" panel. Turning it into a real community-submission system (contributor accounts, review process, profiles) is a future project once you're ready to open up the platform.</span></div>
+      </li>
+      <li>
+        <div class="box"></div>
+        <div class="item-text"><b>Add E-E-A-T credibility content</b>
+        <span>Real photos, a fuller personal bio, and/or testimonials — strengthens trust signals for both visitors and search engines. Mentioned as a strategic recommendation, not yet started.</span></div>
+      </li>
+    </ul>
+  </section>
+
+  <footer>
+    This list lives alongside index.html in your Mandeleon project folder. I'll keep it
+    updated as new follow-up items come up in future conversations — just ask to see it or add to it
+    anytime.
+  </footer>
+</div>
+</body>
+</html>

@@ -1300,6 +1300,34 @@
   @media (prefers-reduced-motion: reduce){
     .avatar-peak-glow{ animation:none; }
   }
+  /* Milder everyday sibling of the Peak glow above — todo.html's "subtle
+     fractal-textured glow... when most meters are green" polish item.
+     Fires when a majority of meters are individually green/Thriving
+     (see meterStateLabel's own >=60 threshold) but not literally every
+     meter maxed — that stronger case is already Peak's gold halo, so this
+     never shows alongside it (see the tier !== 'peak' check in
+     renderAvatarBody). The conic-gradient layer gives it a faint radiating
+     pattern (nodding to the fractal/infinity mark in the wordmark) rather
+     than a plain flat glow, at lower opacity and a gentler pulse than Peak
+     so it reads as a lesser, everyday version of that full-circle moment. */
+  .avatar-green-glow{
+    position:absolute; inset:-16%; border-radius:50%; pointer-events:none; z-index:-1;
+    background:
+      conic-gradient(from 0deg, rgba(45,175,105,.16) 0%, rgba(45,175,105,0) 20%, rgba(45,175,105,.16) 40%, rgba(45,175,105,0) 60%, rgba(45,175,105,.16) 80%, rgba(45,175,105,0) 100%),
+      radial-gradient(circle, rgba(60,190,110,.32) 0%, rgba(60,190,110,.13) 45%, rgba(60,190,110,0) 72%);
+    animation:avatarGreenGlowPulse 4.4s ease-in-out infinite, avatarGreenGlowSpin 16s linear infinite;
+  }
+  @keyframes avatarGreenGlowPulse{
+    0%, 100% { opacity:.55; }
+    50%      { opacity:.85; }
+  }
+  @keyframes avatarGreenGlowSpin{
+    from { transform:rotate(0deg); }
+    to   { transform:rotate(360deg); }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .avatar-green-glow{ animation:none; }
+  }
   .avatar-view h2{text-align:center; margin:0 0 4px; font-size:21px;}
   /* Biological vs chronological age — "the number displayed most
      prominently" per Section 1 of the spec. Biological age (driven by the
@@ -1348,7 +1376,57 @@
   }
   .feed-toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
   .feed-toast.perfect{background:#7c5cbf;}
+  /* Confetti burst for the random Perfect Feed/Boost moment — todo.html's
+     "flash of confetti" polish item, paired with the existing purple
+     "✨ Perfect Feed!" toast text above (see launchConfetti(), called from
+     showFeedToast whenever isPerfect is true). Pure CSS-driven fall: each
+     piece gets randomized horizontal drift/rotation/timing set as inline
+     custom properties by the JS, so no per-piece keyframe rules are needed.
+     Sits just under the toast's z-index so the message stays readable on
+     top of it. */
+  .confetti-burst{ position:fixed; inset:0; pointer-events:none; z-index:9998; overflow:hidden; }
+  .confetti-piece{
+    position:absolute; top:-12px; border-radius:2px; opacity:0;
+    animation-name:confettiFall; animation-timing-function:cubic-bezier(.25,.46,.45,.94); animation-fill-mode:forwards;
+  }
+  @keyframes confettiFall{
+    0%   { opacity:1; transform:translate(0, 0) rotate(0deg); }
+    100% { opacity:0; transform:translate(var(--drift), 100vh) rotate(var(--rotate)); }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .confetti-burst{ display:none; }
+  }
+  /* Visitor Accounts (see gamification-spec.md) — the login/signup/logout
+     row surfaced inside the avatar panel (both the naming screen and the
+     regular view share one instance of it). Deliberately understated: this
+     is an optional upgrade path for an avatar that already works fine
+     without an account, not a gate in front of anything. */
+  .avatar-account-row{
+    display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap;
+    font-size:12.5px; color:var(--ink-soft); text-align:center;
+    margin:0 0 14px; padding-bottom:12px; border-bottom:1px solid var(--line);
+  }
+  .avatar-account-row .account-link-btn{
+    background:none; border:none; padding:0; font:inherit; font-weight:700;
+    color:var(--red); cursor:pointer; text-decoration:underline;
+  }
+  .avatar-account-row .account-link-btn:hover{ color:var(--red-dark); }
+  .avatar-account-email{ color:var(--ink); font-weight:600; }
+  .avatar-claim-banner{
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+    font-size:12.5px; color:var(--ink-soft); text-align:center;
+    margin:0 0 14px; padding:10px 12px 12px; border:1px dashed var(--line); border-radius:12px;
+  }
+  .avatar-claim-banner .claim-actions{ display:flex; gap:8px; }
+  .avatar-claim-banner button{
+    border-radius:16px; border:none; font-weight:700; font-size:12.5px; padding:6px 14px; cursor:pointer;
+  }
+  .avatar-claim-banner .claim-yes{ background:var(--red); color:#fff; }
+  .avatar-claim-banner .claim-yes:hover{ background:var(--red-dark); }
+  .avatar-claim-banner .claim-no{ background:#efefef; color:var(--ink); }
+  .avatar-claim-banner .claim-no:hover{ background:#e2e2e2; }
 </style>
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 </head>
 <body>
 
@@ -1928,6 +2006,14 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
     <div class="modal avatar-modal" role="dialog" aria-modal="true" aria-labelledby="avatarModalTitle">
       <button class="modal-close" id="avatarClose" aria-label="Close">✕</button>
       <div class="modal-content">
+        <div class="avatar-account-row" id="avatarAccountRow"></div>
+        <div class="avatar-claim-banner" id="avatarClaimBanner" hidden>
+          <span>You've got an avatar on this device already — bring it into your account?</span>
+          <div class="claim-actions">
+            <button type="button" class="claim-yes" id="claimYesBtn">Yes, use this one</button>
+            <button type="button" class="claim-no" id="claimNoBtn">No, start fresh</button>
+          </div>
+        </div>
         <div id="avatarSetup" class="avatar-setup">
           <div class="avatar-setup-icon" id="avatarSetupIcon">🐣</div>
           <h2>Name Your Avatar</h2>
@@ -2511,6 +2597,9 @@ function getStoredSavedSlugs(){
 function setStoredSavedSlugs(slugs){
   try{ localStorage.setItem(SAVED_SLUGS_KEY, JSON.stringify(slugs)); }
   catch(e){ /* storage unavailable — saves just won't persist this session */ }
+  // Background sync to the account, if logged in — see "VISITOR ACCOUNTS"
+  // below. No-op when signed out.
+  syncTilesToServer(slugs);
 }
 
 const storedSavedSlugs = new Set(getStoredSavedSlugs());
@@ -2548,8 +2637,11 @@ const METER_CONFIG = {
 };
 
 // Maps real site categories onto the meter they feed. Categories not listed
-// here (foundational, gadgets, diet, agetesting, cuttingedge, exotics,
-// inspiration) don't have a meter mapping yet — see the note above.
+// here (foundational, diet, agetesting, cuttingedge, inspiration) don't have
+// a meter mapping yet. Gadgets and Exotics also aren't listed here — both
+// are feedable, but mapped per-product further down (GADGET_METER_BY_NAME /
+// exoticMeters) rather than by category, since a single shared meter
+// wouldn't fit how varied the items within either bucket actually are.
 const CATEGORY_TO_METER = {
   sleep:'sleep',
   energy:'energy', nad:'energy', senolytic:'energy',
@@ -2594,6 +2686,37 @@ PRODUCTS.forEach(p => {
     meterKeys.add(EXOTICS_METER_FALLBACK_BY_NAME[p.name]);
   }
   p.exoticMeters = Array.from(meterKeys);
+});
+
+// Gadgets: same "feedable" treatment as every real category, but mapped
+// per-product by name rather than through CATEGORY_TO_METER — every current
+// Gadgets tile carries only the single generic 'gadgets' category (no
+// cross-listed twin the way Exotics items usually have), and the devices
+// themselves are too varied in what they actually do (an oral-health tool
+// and a sleep tracker have nothing in common) for one shared "gadgets"
+// meter to make sense. Unlike Exotics, there's no unlock-level gate here —
+// these feed normally, right away, same as any other pick. New gadget
+// tiles added later without an entry here simply won't show a Feed button
+// until one's added, same fallback behavior CATEGORY_TO_METER already has
+// for any unmapped category.
+const GADGET_METER_BY_NAME = {
+  'Sleep Monitor': 'sleep',
+  'Glucose Monitor': 'energy',
+  'PEMF Mat': 'muscle',
+  'Far Infrared Mat': 'muscle',
+  'Quality Air Purifier': 'immune',
+  'Hydrogen Water Bottle': 'immune',
+  'Ultrasonic Tooth Plaque Remover': 'immune',
+  'Fractional Laser Device': 'skin',
+  'Rotating Facial Brush': 'skin',
+  'Dermal Roller': 'skin',
+  'Microdermabrasion Tool': 'skin',
+  'Electric Scalp Massager': 'skin'
+};
+PRODUCTS.forEach(p => {
+  if(!p.cats.includes('gadgets')) return;
+  const meterKey = GADGET_METER_BY_NAME[p.name];
+  p.gadgetMeters = meterKey ? [meterKey] : [];
 });
 
 function todayStr(){ return new Date().toISOString().slice(0,10); }
@@ -2674,6 +2797,11 @@ function getAvatar(){
 function saveAvatar(avatar){
   try{ localStorage.setItem(AVATAR_KEY, JSON.stringify(avatar)); }
   catch(e){ /* storage unavailable — avatar just won't persist this session */ }
+  // Background sync to the account, if logged in — see "VISITOR ACCOUNTS"
+  // section near the end of this script. No-op (and never blocks/throws)
+  // when signed out, so every existing localStorage-only caller is
+  // unaffected.
+  syncAvatarToServer(avatar);
 }
 function createAvatar(name, faceImage){
   const today = todayStr();
@@ -2799,6 +2927,10 @@ function getFeedableMeters(product, avatar){
       product.exoticMeters.forEach(k => keys.add(k));
     }
   }
+  // Gadgets: feedable immediately, no unlock gate — see `gadgetMeters` above.
+  if(product.cats && product.cats.includes('gadgets') && product.gadgetMeters){
+    product.gadgetMeters.forEach(k => keys.add(k));
+  }
   return Array.from(keys);
 }
 // True when a product WOULD be Boost-eligible once an avatar levels up
@@ -2887,9 +3019,9 @@ function renderAvatarLevel(avatar){
   if(!el) return;
   const info = getAvatarLevel(avatar);
   const progress = info.next
-    ? ` · ${info.score}/${info.next.score} Longevity Score to Level ${info.next.level}`
-    : ' · Max level reached';
-  el.innerHTML = `<b>Level ${info.level}: ${info.title}</b>${progress}`;
+    ? ` · ${info.score}/${info.next.score} Longevity Score to Rank ${info.next.level}`
+    : ' · Max rank reached';
+  el.innerHTML = `<b>Rank ${info.level}: ${info.title}</b>${progress}`;
 }
 
 // The always-visible header strip (docked in .sticky-nav, between the
@@ -2996,7 +3128,7 @@ function renderAvatarStatusLine(avatar){
   const el = document.getElementById('avatarStatusLine');
   if(!el) return;
   const status = getAvatarStatusInfo(avatar);
-  el.innerHTML = `Health: ${statusPillHtml(status.health)} &nbsp; Pool: ${statusPillHtml(status.poolInfo)}`;
+  el.innerHTML = `Health: ${statusPillHtml(status.health)} &nbsp; Tier: ${statusPillHtml(status.poolInfo)}`;
 }
 
 // The base avatar illustration — a licensed image the user has confirmed
@@ -3050,6 +3182,16 @@ function renderAvatarBody(avatar){
   const peakMarkup = style.flexPose
     ? `<div class="avatar-peak-glow"></div>`
     : '';
+  // Milder everyday sibling of the Peak glow: fires when a majority of the
+  // 8 meters are individually green/Thriving (meterStateLabel's own >=60
+  // cutoff), skipped for Peak itself since every meter maxed already gets
+  // the stronger gold halo above — see the .avatar-green-glow comment in
+  // the stylesheet for the full reasoning.
+  const meterValues = Object.values(avatar.meters);
+  const greenMeterCount = meterValues.filter(v => v >= 60).length;
+  const greenGlowMarkup = (tier !== 'peak' && greenMeterCount > meterValues.length / 2)
+    ? `<div class="avatar-green-glow"></div>`
+    : '';
   // Mirrors the Health pill's battery-themed wording (HEALTH_STATUS_INFO)
   // so a screen reader announces the same word a sighted visitor sees.
   const tierLabel = tier === 'peak'
@@ -3061,6 +3203,7 @@ function renderAvatarBody(avatar){
       ${overlayMarkup}
       ${wornMarkup}
       ${peakMarkup}
+      ${greenGlowMarkup}
       ${sparkleMarkup}
     </div>`;
 }
@@ -3090,6 +3233,8 @@ function openAvatarPanel(){
     document.getElementById('avatarSetup').hidden = false;
     document.getElementById('avatarView').hidden = true;
   }
+  renderAccountRow();
+  refreshClaimBanner();
   avatarBackdrop.classList.add('open');
 }
 function closeAvatarPanel(){ avatarBackdrop.classList.remove('open'); }
@@ -3292,6 +3437,40 @@ document.getElementById('avatarNameForm').addEventListener('submit', (e) => {
   openAvatarPanel();
 });
 
+// Confetti burst for the random Perfect Feed/Boost moment (todo.html) —
+// randomizes each piece's start position, fall drift, rotation, size, and
+// timing as inline custom properties, so the single confettiFall keyframe
+// in the stylesheet handles every piece differently without generating CSS.
+const CONFETTI_COLORS = ['#e63946', '#f4a637', '#ffd93d', '#6bcb77', '#4d96ff', '#9b5de5'];
+function launchConfetti(){
+  const container = document.createElement('div');
+  container.className = 'confetti-burst';
+  const pieceCount = 26;
+  for(let i = 0; i < pieceCount; i++){
+    const piece = document.createElement('span');
+    piece.className = 'confetti-piece';
+    const startX = 50 + (Math.random() * 70 - 35); // vw, spread around center
+    const drift = Math.random() * 160 - 80;         // px horizontal drift while falling
+    const rotate = 180 + Math.random() * 540;
+    const delay = Math.random() * 0.25;
+    const duration = 1.6 + Math.random() * 0.9;
+    const width = 6 + Math.random() * 5;
+    const height = width * 0.4;
+    const color = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+    piece.style.left = startX + 'vw';
+    piece.style.width = width + 'px';
+    piece.style.height = height + 'px';
+    piece.style.background = color;
+    piece.style.setProperty('--drift', drift + 'px');
+    piece.style.setProperty('--rotate', rotate + 'deg');
+    piece.style.animationDuration = duration + 's';
+    piece.style.animationDelay = delay + 's';
+    container.appendChild(piece);
+  }
+  document.body.appendChild(container);
+  setTimeout(() => container.remove(), 3000);
+}
+
 function showFeedToast(message, isPerfect){
   let toast = document.getElementById('feedToast');
   if(!toast){
@@ -3307,6 +3486,7 @@ function showFeedToast(message, isPerfect){
   toast.classList.add('show');
   clearTimeout(toast._hideTimer);
   toast._hideTimer = setTimeout(() => toast.classList.remove('show'), 2800);
+  if(isPerfect) launchConfetti();
 }
 
 const NEW_WINDOW_DAYS = 21;
@@ -3370,7 +3550,7 @@ function render(list){
             <div class="overlay-bottom-left">
               ${feedableMeters.length > 0
                 ? `<button class="feed-card-btn${isExoticBoost ? ' exotic-boost' : ''}" data-feed="${idx}">${isExoticBoost ? '⚡ Boost' : '🍽️ Feed'}</button>`
-                : (exoticLocked ? `<span class="feed-locked-hint" title="Boosting unlocks at Level ${EXOTICS_UNLOCK_LEVEL}">🔒 Boost</span>` : '')}
+                : (exoticLocked ? `<span class="feed-locked-hint" title="Boosting unlocks at Rank ${EXOTICS_UNLOCK_LEVEL}">🔒 Boost</span>` : '')}
             </div>
             <div class="overlay-bottom-right">
               ${isClickable ? `<button class="visit-btn" data-visit="${idx}">↗ Visit</button>` : ''}
@@ -3652,7 +3832,7 @@ function openModal(idx){
     const need = CARE_LEVELS.find(l => l.level === EXOTICS_UNLOCK_LEVEL);
     const current = getAvatarLevel(modalAvatar);
     lockHint.hidden = false;
-    lockHint.textContent = `🔒 Boosting unlocks at Level ${EXOTICS_UNLOCK_LEVEL}: ${need.title} (Longevity Score ${need.score}). You're currently Level ${current.level}: ${current.title} (Longevity Score ${current.score}).`;
+    lockHint.textContent = `🔒 Boosting unlocks at Rank ${EXOTICS_UNLOCK_LEVEL}: ${need.title} (Longevity Score ${need.score}). You're currently Rank ${current.level}: ${current.title} (Longevity Score ${current.score}).`;
   } else {
     lockHint.hidden = true;
   }
@@ -3885,6 +4065,186 @@ function openProductFromLink(idx){
   if(idx === undefined) return;
   openProductFromLink(idx);
 })();
+
+/* =========================================================
+   VISITOR ACCOUNTS — Netlify Identity + Netlify Database
+   (see gamification-spec.md / todo.html "Visitor Accounts").
+   Everything above this still works exactly as before for a
+   signed-out visitor: the avatar and favorites board live in
+   localStorage only, same as always. Logging in is a pure
+   upgrade on top of that, not a requirement — it syncs the same
+   local state to a per-account record (netlify/functions/) so it
+   follows the visitor across devices, and is what the future
+   Cohort Tiers leaderboard will read from. Backend: netlify/functions/
+   avatar-get.js, avatar-save.js, tiles-sync.js, claim-avatar.js,
+   avatar-name-check.js.
+   ========================================================= */
+const AVATAR_LINKED_KEY = 'mandeleon_avatar_linked_v1';
+let currentIdentityUser = null;
+// True only while the "bring your avatar in?" banner is up and unresolved —
+// blocks background syncing so a fresh login never silently uploads an
+// unconfirmed local avatar (the user asked for this to be an optional
+// prompt, not automatic).
+let claimPending = false;
+
+function isAvatarLinked(){
+  return !!(currentIdentityUser && localStorage.getItem(AVATAR_LINKED_KEY) === currentIdentityUser.sub);
+}
+function markAvatarLinked(){
+  if(!currentIdentityUser) return;
+  try{ localStorage.setItem(AVATAR_LINKED_KEY, currentIdentityUser.sub); }
+  catch(e){ /* storage unavailable — sync just won't be gated across reloads this session */ }
+}
+
+async function authFetch(path, opts){
+  opts = opts || {};
+  const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+  if(currentIdentityUser){
+    try{
+      const token = await currentIdentityUser.jwt();
+      headers['Authorization'] = `Bearer ${token}`;
+    } catch(e){ /* token refresh failed — request goes out unauthenticated; function will 401 */ }
+  }
+  return fetch(path, Object.assign({}, opts, { headers }));
+}
+
+// Fire-and-forget background sync, called from saveAvatar()/setStoredSavedSlugs()
+// above. Never throws into its caller — a network hiccup just means the
+// account copy is briefly behind; the local copy (source of truth for the
+// signed-out/offline case) is unaffected either way.
+function syncAvatarToServer(avatar){
+  if(!currentIdentityUser || !isAvatarLinked() || claimPending) return;
+  authFetch('/.netlify/functions/avatar-save', { method:'POST', body: JSON.stringify(avatar) })
+    .then(async (res) => {
+      if(res.status === 409){
+        const body = await res.json().catch(() => ({}));
+        showFeedToast(body.error || 'That avatar name is taken on your account — try renaming it.');
+      }
+    })
+    .catch(() => { /* offline/network issue — will retry on the next save */ });
+}
+function syncTilesToServer(slugs){
+  if(!currentIdentityUser || !isAvatarLinked() || claimPending) return;
+  authFetch('/.netlify/functions/tiles-sync', { method:'POST', body: JSON.stringify({ slugs }) })
+    .catch(() => { /* offline/network issue — will retry on the next save */ });
+}
+
+function renderAccountRow(){
+  const el = document.getElementById('avatarAccountRow');
+  if(!el) return;
+  el.innerHTML = '';
+  if(currentIdentityUser){
+    const emailSpan = document.createElement('span');
+    emailSpan.className = 'avatar-account-email';
+    emailSpan.textContent = currentIdentityUser.email;
+    const logoutBtn = document.createElement('button');
+    logoutBtn.type = 'button';
+    logoutBtn.className = 'account-link-btn';
+    logoutBtn.textContent = 'Log out';
+    logoutBtn.addEventListener('click', () => netlifyIdentity.logout());
+    el.append('Signed in as ', emailSpan, ' · ', logoutBtn);
+  } else {
+    const loginBtn = document.createElement('button');
+    loginBtn.type = 'button';
+    loginBtn.className = 'account-link-btn';
+    loginBtn.textContent = 'Log in or sign up';
+    loginBtn.addEventListener('click', () => netlifyIdentity.open());
+    el.append(loginBtn, ' to save your avatar to your account');
+  }
+}
+function refreshClaimBanner(){
+  const banner = document.getElementById('avatarClaimBanner');
+  if(banner) banner.hidden = !claimPending;
+}
+
+const claimYesBtn = document.getElementById('claimYesBtn');
+if(claimYesBtn) claimYesBtn.addEventListener('click', async () => {
+  const avatar = getAvatar();
+  if(!avatar || !currentIdentityUser) return;
+  const savedSlugs = Array.from(saved).map(i => PRODUCTS[i] && PRODUCTS[i].slug).filter(Boolean);
+  try{
+    const res = await authFetch('/.netlify/functions/claim-avatar', {
+      method:'POST', body: JSON.stringify({ avatar, savedSlugs })
+    });
+    const body = await res.json().catch(() => ({}));
+    if(res.ok){
+      claimPending = false;
+      markAvatarLinked();
+      refreshClaimBanner();
+      showFeedToast('✅ Avatar linked to your account!');
+    } else {
+      showFeedToast(body.error || 'Could not link that avatar — try again.');
+    }
+  } catch(e){
+    showFeedToast('Could not reach the server — try again in a moment.');
+  }
+});
+
+const claimNoBtn = document.getElementById('claimNoBtn');
+if(claimNoBtn) claimNoBtn.addEventListener('click', () => {
+  // "Start fresh": this device's existing avatar is left purely local
+  // and never uploaded — the account starts clean, reopened straight to
+  // the naming screen so a new, account-linked avatar can be created
+  // right away. It can't be silently merged instead because avatar names
+  // must stay globally unique once tied to an account.
+  claimPending = false;
+  markAvatarLinked();
+  refreshClaimBanner();
+  localStorage.removeItem(AVATAR_KEY);
+  document.getElementById('avatarSetup').hidden = false;
+  document.getElementById('avatarView').hidden = true;
+});
+
+async function handleIdentityUserResolved(user){
+  currentIdentityUser = user;
+  renderAccountRow();
+  if(!user){
+    claimPending = false;
+    refreshClaimBanner();
+    return;
+  }
+  if(isAvatarLinked()){
+    claimPending = false;
+    refreshClaimBanner();
+    return;
+  }
+  try{
+    const res = await authFetch('/.netlify/functions/avatar-get');
+    const body = await res.json().catch(() => ({}));
+    if(body && body.avatar){
+      // This account already has an avatar from another device/session —
+      // adopt it here as the source of truth for this browser too.
+      markAvatarLinked();
+      saveAvatar(body.avatar);
+      claimPending = false;
+      renderAvatarStrip();
+      if(avatarBackdrop.classList.contains('open')) openAvatarPanel();
+    } else if(getAvatar()){
+      // No account avatar yet, but this device already has one locally —
+      // ask before uploading it, per the optional-prompt design.
+      claimPending = true;
+    } else {
+      // Nothing local and nothing on the account yet — nothing to ask.
+      markAvatarLinked();
+      claimPending = false;
+    }
+  } catch(e){
+    // Couldn't reach the server to check — leave state as-is; the next
+    // successful check (next login, or next avatar-panel open) resolves it.
+  }
+  refreshClaimBanner();
+}
+
+if(typeof netlifyIdentity !== 'undefined'){
+  netlifyIdentity.on('init', (user) => { handleIdentityUserResolved(user); });
+  netlifyIdentity.on('login', (user) => {
+    netlifyIdentity.close();
+    handleIdentityUserResolved(user);
+  });
+  netlifyIdentity.on('logout', () => { handleIdentityUserResolved(null); });
+  netlifyIdentity.on('error', (err) => { console.error('Netlify Identity error', err); });
+  netlifyIdentity.init();
+}
 </script>
 </body>
 </html>
