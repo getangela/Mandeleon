@@ -1181,9 +1181,10 @@
   .avatar-setup h2{margin:0 0 10px; font-size:21px;}
   .avatar-setup .desc{font-size:14px; color:var(--ink-soft); line-height:1.6; margin:0 0 18px;}
   .avatar-setup input{
-    width:100%; padding:12px 14px; border:1px solid var(--border); border-radius:8px;
-    font-size:15px; box-sizing:border-box; font-family:inherit;
+    width:100%; padding:14px; border:1px solid var(--border); border-radius:8px;
+    font-size:20px; font-weight:600; text-align:center; box-sizing:border-box; font-family:inherit;
   }
+  .avatar-setup input::placeholder{ color:var(--ink); opacity:1; }
   .avatar-photo-picker{text-align:center; margin:0 0 18px;}
   .avatar-photo-label{
     display:inline-flex; align-items:center; justify-content:center;
@@ -2064,7 +2065,7 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
             <p class="avatar-photo-hint">Take a photo or choose one from your library to personalize your avatar's face (optional)</p>
           </div>
           <form id="avatarNameForm">
-            <input type="text" id="avatarNameInput" placeholder="Give it a name..." maxlength="30" required>
+            <input type="text" id="avatarNameInput" placeholder="Name Your Avatar" maxlength="30" required>
             <button type="submit" class="shop-btn" style="width:100%; margin-top:10px;">Create My Avatar</button>
           </form>
         </div>
@@ -4117,6 +4118,20 @@ function openProductFromLink(idx){
    avatar-name-check.js.
    ========================================================= */
 const AVATAR_LINKED_KEY = 'mandeleon_avatar_linked_v1';
+// Tracks whether this browser has ever completed an Identity login (signup
+// confirmation counts — that's the first successful login for a brand new
+// account). Once true, the account-row CTA switches from "Sign Up" to
+// "Log In" permanently on this device, even after logging out — a visitor
+// who's already registered shouldn't be invited to sign up again.
+const HAS_SIGNED_UP_KEY = 'mandeleon_has_signed_up_v1';
+function hasEverSignedUp(){
+  try{ return localStorage.getItem(HAS_SIGNED_UP_KEY) === '1'; }
+  catch(e){ return false; }
+}
+function markSignedUp(){
+  try{ localStorage.setItem(HAS_SIGNED_UP_KEY, '1'); }
+  catch(e){ /* storage unavailable — CTA just won't remember across reloads this session */ }
+}
 let currentIdentityUser = null;
 // True only while the "bring your avatar in?" banner is up and unresolved —
 // blocks background syncing so a fresh login never silently uploads an
@@ -4195,8 +4210,16 @@ function renderAccountRow(){
     const loginBtn = document.createElement('button');
     loginBtn.type = 'button';
     loginBtn.className = 'account-link-btn';
-    loginBtn.textContent = 'Log in or Sign up';
-    loginBtn.addEventListener('click', () => netlifyIdentity.open());
+    // First time on this device: only offer Sign Up — there's no account to
+    // log into yet. Once this device has ever completed a login (signup
+    // confirmation counts), switch permanently to Log In instead.
+    if(hasEverSignedUp()){
+      loginBtn.textContent = 'Log In';
+      loginBtn.addEventListener('click', () => netlifyIdentity.open('login'));
+    } else {
+      loginBtn.textContent = 'Sign Up';
+      loginBtn.addEventListener('click', () => netlifyIdentity.open('signup'));
+    }
     el.append('To save your avatar to your account ', loginBtn);
   }
 }
@@ -4245,6 +4268,7 @@ if(claimNoBtn) claimNoBtn.addEventListener('click', () => {
 
 async function handleIdentityUserResolved(user){
   currentIdentityUser = user;
+  if(user) markSignedUp();
   renderAccountRow();
   if(!user){
     claimPending = false;
