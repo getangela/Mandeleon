@@ -28,6 +28,18 @@ async function ensureUser(identityUser) {
   const db = getDb();
   const id = identityUser.sub;
   const email = identityUser.email;
+  // A visitor can end up logging in with a different Identity `sub` (id)
+  // for the same email — e.g. their old Identity account was deleted and
+  // a new one created with that same address. email is UNIQUE on this
+  // table, so that leaves a stale row sitting under the old id, and
+  // `ON CONFLICT (id)` below can't see it (the collision is on the email
+  // constraint, not the id one) — confirmed live Sept 9, claim-avatar
+  // failing with "duplicate key value violates unique constraint
+  // users_email_key" even though this exact insert had never run for this
+  // id before. Clear out any such stale row first; ON DELETE CASCADE on
+  // avatars/saved_tiles takes any leftover data for that dead account
+  // with it, since it's no longer reachable under the old id anyway.
+  await db.sql`DELETE FROM users WHERE email = ${email} AND id != ${id}`;
   await db.sql`
     INSERT INTO users (id, email) VALUES (${id}, ${email})
     ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email
