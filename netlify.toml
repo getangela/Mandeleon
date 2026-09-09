@@ -11,3 +11,21 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+
+# Force a single canonical address for the whole site. Without this, a
+# visitor can land on www.mandeleon.com for one visit and plain
+# mandeleon.com for another (both serve the same Netlify site, so nothing
+# looks "broken" — the page loads fine either way). The problem is that
+# the avatar (photo, name, everything) lives in the browser's localStorage,
+# which is scoped per-address: www.mandeleon.com and mandeleon.com don't
+# share it, so an avatar created on one silently doesn't exist on the
+# other. Netlify Identity's confirmation/recovery/invite links always land
+# on mandeleon.com (the site's configured primary domain), so that has to
+# be the one and only address real visitors ever end up using — this
+# redirect makes sure of it before any page content (or its localStorage)
+# is ever touched.
+[[redirects]]
+  from = "https://www.mandeleon.com/*"
+  to = "https://mandeleon.com/:splat"
+  status = 301
+  force = true
