@@ -19,6 +19,9 @@ exports.handler = async (event) => {
     return json(200, { available: rows.length === 0 });
   } catch (err) {
     console.error('avatar-name-check failed', err);
-    return json(500, { error: 'Lookup failed' });
+    // TEMPORARY diagnostic — surfaces the real error so we can see what's
+    // actually failing without needing Netlify dashboard log access. Will
+    // be reverted to a generic message once the root cause is confirmed.
+    return json(500, { error: 'Lookup failed', debug: String(err && err.message || err), stack: err && err.stack });
   }
 };
