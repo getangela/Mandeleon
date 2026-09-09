@@ -1,16 +1,23 @@
 // Shared helper for the Visitor Accounts functions. Not itself a function —
 // Netlify only turns a file into an endpoint if it exports `handler`, and
 // this one doesn't, so it's safe to import from any of the sibling files.
-const { getDatabase } = require('@netlify/database');
+const { getDatabase, getConnectionString } = require('@netlify/database');
 
 let db;
 function getDb() {
   // Our functions use the classic exports.handler ("Lambda compatibility
   // mode") so that context.clientContext.user works for Identity — but
   // that's also the one case where Netlify doesn't auto-inject the
-  // connection string into getDatabase(). NETLIFY_DB_URL is still set on
-  // process.env automatically; it just has to be passed in explicitly here.
-  if (!db) db = getDatabase({ connectionString: process.env.NETLIFY_DB_URL });
+  // connection string into getDatabase(). This used to read
+  // process.env.NETLIFY_DB_URL directly, on the assumption Netlify sets it
+  // automatically — confirmed (Sept 9) that it does NOT: Environment
+  // variables is completely empty even with a live, migrated production
+  // database branch, so that always resolved to undefined and every query
+  // failed with a 500. getConnectionString() is @netlify/database's own
+  // helper for exactly this situation — it resolves the correct connection
+  // string for the current environment/branch without depending on a
+  // specific env var being present.
+  if (!db) db = getDatabase({ connectionString: getConnectionString() });
   return db;
 }
 
