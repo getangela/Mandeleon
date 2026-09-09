@@ -1417,6 +1417,15 @@
     font-size:12.5px; color:var(--ink-soft); text-align:center;
     margin:0 0 14px; padding:10px 12px 12px; border:1px dashed var(--line); border-radius:12px;
   }
+  /* The rule above sets display:flex unconditionally on the class, which
+     silently overrides the browser's built-in "hidden attribute means
+     display:none" behavior (an author stylesheet rule always beats that
+     default, regardless of the hidden attribute being present). Without
+     this line, refreshClaimBanner()'s banner.hidden = true/false toggle in
+     the JS below has no visible effect and the "bring your avatar into your
+     account?" banner shows to every visitor, logged in or not, avatar or
+     not — exactly the bug reported Sept 9. */
+  .avatar-claim-banner[hidden]{ display:none; }
   .avatar-claim-banner .claim-actions{ display:flex; gap:8px; }
   .avatar-claim-banner button{
     border-radius:16px; border:none; font-weight:700; font-size:12.5px; padding:6px 14px; cursor:pointer;
