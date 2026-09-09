@@ -1425,6 +1425,14 @@
   .avatar-claim-banner .claim-yes:hover{ background:var(--red-dark); }
   .avatar-claim-banner .claim-no{ background:#efefef; color:var(--ink); }
   .avatar-claim-banner .claim-no:hover{ background:#e2e2e2; }
+
+  /* Netlify Identity's own widget ships with z-index:99 on its login/signup
+     iframe, which is lower than every modal on this site (avatarBackdrop
+     and friends use z-index:100+, up to 9999 for the feed toast). That
+     leaves the login popup rendering visually behind whatever modal was
+     open when "Log in or sign up" was clicked — e.g. the avatar dashboard
+     tile. Force it above all of them, including the toast/confetti layers. */
+  #netlify-identity-widget{ z-index:99999 !important; }
 </style>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 </head>
@@ -4133,6 +4141,17 @@ function renderAccountRow(){
   const el = document.getElementById('avatarAccountRow');
   if(!el) return;
   el.innerHTML = '';
+  // A brand-new visitor who hasn't created an avatar yet has nothing to log
+  // in and link — showing "Log in or sign up to save your avatar" right next
+  // to "Create My Avatar" reads as two competing options instead of one flow
+  // (create first, optionally link an account afterward). So stay hidden
+  // until either an avatar exists to save, or the visitor is already signed
+  // in (in which case showing "Signed in as..."/"Log out" is still useful).
+  if(!currentIdentityUser && !getAvatar()){
+    el.hidden = true;
+    return;
+  }
+  el.hidden = false;
   if(currentIdentityUser){
     const emailSpan = document.createElement('span');
     emailSpan.className = 'avatar-account-email';
