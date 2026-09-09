@@ -4270,7 +4270,20 @@ if(typeof netlifyIdentity !== 'undefined'){
     handleIdentityUserResolved(user);
   });
   netlifyIdentity.on('logout', () => { handleIdentityUserResolved(null); });
-  netlifyIdentity.on('error', (err) => { console.error('Netlify Identity error', err); });
+  // A confirmation/recovery link that's expired, already used, or points at
+  // a deleted account throws here — but the widget's own iframe doesn't
+  // reliably close itself afterward (confirmed Sept 9: it's left sitting as
+  // a full-screen, invisible, click-swallowing overlay over the entire
+  // site). Force it closed and strip the dead token out of the URL so a bad
+  // link can't strand a real visitor on a page that looks completely frozen.
+  netlifyIdentity.on('error', (err) => {
+    console.error('Netlify Identity error', err);
+    netlifyIdentity.close();
+    const widget = document.getElementById('netlify-identity-widget');
+    if(widget) widget.style.display = 'none';
+    if(location.hash) history.replaceState(null, '', location.pathname + location.search);
+    showFeedToast('That link has expired or already been used — try signing up or logging in again.');
+  });
   netlifyIdentity.init();
 }
 </script>
