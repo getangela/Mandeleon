@@ -1403,7 +1403,7 @@
      without an account, not a gate in front of anything. */
   .avatar-account-row{
     display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap;
-    font-size:12.5px; color:var(--ink-soft); text-align:center;
+    font-size:16px; color:var(--ink-soft); text-align:center;
     margin:0 0 14px; padding-bottom:12px; border-bottom:1px solid var(--line);
   }
   .avatar-account-row .account-link-btn{
@@ -4175,9 +4175,9 @@ function renderAccountRow(){
     const loginBtn = document.createElement('button');
     loginBtn.type = 'button';
     loginBtn.className = 'account-link-btn';
-    loginBtn.textContent = 'Log in or sign up';
+    loginBtn.textContent = 'Log in or Sign up';
     loginBtn.addEventListener('click', () => netlifyIdentity.open());
-    el.append(loginBtn, ' to save your avatar to your account');
+    el.append('To save your avatar to your account ', loginBtn);
   }
 }
 function refreshClaimBanner(){
