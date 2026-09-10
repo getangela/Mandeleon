@@ -63,7 +63,7 @@
   <header>
     <h1>Mandeleon — Post-Launch To-Do List</h1>
     <p class="subtitle">Everything we've agreed to build or revisit once the site has real hosting.</p>
-    <p class="meta">Last updated: September 8, 2026</p>
+    <p class="meta">Last updated: September 10, 2026</p>
   </header>
 
   <p class="trigger-note">
@@ -176,6 +176,11 @@
       </li>
       <li>
         <div class="box"></div>
+        <div class="item-text"><b>Custom-built login/signup form (replace Netlify's popup)</b>
+        <span>Requested: a "show password" eye icon on the sign-up/login password field. Not possible with the current setup — that field lives inside Netlify Identity's own hosted popup (technically a separate embedded mini-site), and browsers block a site from reaching into and modifying another company's embedded content like that, so no CSS/JS trick from our side can add a button to it. The real fix is building a fully custom sign-up/login form (styled to match the site, with its own password-reveal toggle and any other niceties) that talks to the same Netlify Identity backend directly, instead of relying on Netlify's built-in popup UI. This is a real project — designing and building the form, then wiring it to the existing auth endpoints — not a quick fix, so it's tracked here rather than attempted inline.</span></div>
+      </li>
+      <li>
+        <div class="box"></div>
         <div class="item-text"><b>Personal boards (Pinterest-style)</b>
         <span>Once logged in, visitors create their own named boards and save any product, video, or article on the site into them — organizing and revisiting their favorites anytime, the same way Pinterest boards work. Builds on top of visitor accounts above.</span></div>
       </li>
@@ -190,10 +195,15 @@
         <div class="item-text"><b>Virtual "Mandeleon" avatar system</b>
         <span>A Tamagotchi-style personal avatar visitors name and keep healthy by "feeding" it real product, video, and article tiles from the site. Health meters map to your actual categories (Brain, Sleep &amp; Stress, Energy &amp; Cellular Repair, Heart, Gut &amp; Liver, Immune &amp; Defense, Muscle &amp; Hormones, Skin), decay daily, and are restored by browsing and feeding. Core mechanics (decay rates, feed values, daily caps, discovery and affiliate bonuses) are built and live, along with creation, leveling, vitality tiers, Health/Pool status, biological age, and the adjustable photo crop. Both polish details originally flagged for later are also now done: (1) a subtle green glow around the avatar when most (not all) meters are green — a milder everyday version of the golden Peak glow, which still only fires when every meter is maxed — and (2) a confetti burst alongside the existing "✨ Perfect Feed!" toast for the random bonus-feed moments. The one piece still genuinely outstanding is the <b>global leaderboard</b> comparing everyone's avatar (Cohort Pools, Section 8 of the gamification spec) — that needs the visitor accounts/database work above, since it requires seeing other people's avatars.</span></div>
       </li>
-      <li>
-        <div class="box"></div>
-        <div class="item-text"><b>Create and provide a full ladder of avatar poses <span class="tag needs-input">Waiting on your art</span></b>
-        <span><b>Confirmed: 5 poses to start</b> — Peak (celebratory/flexing), Thriving, Struggling, Withering, and Coma — more can be added later (e.g. splitting a tier into two, or adding in-between steps) once the base ladder is live. Trigger logic already exists for the first four and needs no further decisions: Peak needs every single one of the 8 health meters (Sleep &amp; Stress, Energy &amp; Cellular Repair, Brain, Gut &amp; Liver, Heart, Immune &amp; Defense, Muscle &amp; Hormones, Skin) individually maxed at 100 — not just a high average, so one neglected category still holds it back; Thriving/Struggling/Withering key off the average of all 8 meters (≥50 / 25–49 / &lt;25). Coma is a planned-but-not-yet-built state (72-hour no-feed countdown reaching zero, per the gamification spec) — its trigger will need to be wired up alongside its pose. You're providing the artwork whenever it's ready — no rush. For each pose to drop in cleanly next to the current single illustration, it should be: (1) same character, clothing, and art style as the existing avatar (so switching poses doesn't look like a different character), (2) a transparent-background PNG like the current one, (3) roughly the same canvas proportions as the current art (616×536) so the existing head-photo-overlay positioning still lines up without recalculating, and (4) named or labeled by tier (peak / thriving / struggling / withering / coma) so they're easy to wire in. Once poses arrive, the code also needs a small restructure — swapping in a different image per tier instead of one image + CSS filters/rotate — which I'll handle on my end.</span></div>
+      <li class="is-done">
+        <div class="box checked">✓</div>
+        <div class="item-text"><b>Create and provide a full ladder of avatar poses <span class="tag done">Done</span></b>
+        <span>Live: 6 distinct hand-drawn poses, one per Health-status tier — Peak (victory pose, every meter at 100), Robust (biceps-flex, every meter 70+), Normal (hands-on-hips, average 50+ — also the starting pose for a freshly created avatar), Weak (arms-at-sides, average 25–49), Fading (slumped/head-down, average below 25), and Coma (kneeling/collapsed — see the Coma trigger &amp; Revival item below, also now done). The uniform itself also now visibly degrades tier over tier (progressive desaturation plus a grime-texture overlay) on top of each pose's own baked-in wear. Cohort Pool was renamed to "Class" at the same time (Elite / Optima / Basic / Grunt) to avoid clashing with Health status's own new "Normal" tier.</span></div>
+      </li>
+      <li class="is-done">
+        <div class="box checked">✓</div>
+        <div class="item-text"><b>Coma trigger &amp; Revival flow <span class="tag done">Done</span></b>
+        <span>Live: per gamification-spec.md Section 4, a 72-real-hour countdown starts the moment the meter average first drops below 25 (Fading) — feeding back above 25 before the countdown finishes cancels it with no penalty, otherwise the avatar enters Coma. Meters stop decaying further once there (no piling-on penalty), and normal feeding is disabled — feeding instead counts toward Revival, which triggers automatically once 4 different meter categories have been fed, waking the avatar at a low ~20-25 baseline per meter (not full health — real effort is still needed afterward, but per the spec nothing is ever lost permanently). The avatar panel shows a dedicated banner with live Revival progress while in Coma, plus a one-time toast the moment the transition is first discovered (whether that's opening the avatar panel or just feeding a tile from the grid). Note: this checks are lazy/client-side, same as the existing daily decay — there's no server-side timer, so the transition is caught the next time the app happens to be open, exactly like decay already works.</span></div>
       </li>
       <li>
         <div class="box"></div>
