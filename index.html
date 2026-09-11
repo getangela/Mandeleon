@@ -1450,6 +1450,86 @@
   .avatar-claim-banner .claim-no{ background:#efefef; color:var(--ink); }
   .avatar-claim-banner .claim-no:hover{ background:#e2e2e2; }
 
+  /* ---------- Personal Boards (Pinterest-style) ----------
+     See todo.html "User accounts & personal boards" / renderBoardsPanel()
+     in the script. Account-only — #boardsLoggedOut vs #boardsLoggedIn
+     mirror the avatar panel's own account-gating pattern. */
+  .favorites-boards-bar{ display:flex; justify-content:center; padding:16px 24px 0; }
+  .favorites-boards-bar[hidden]{ display:none; }
+  .boards-link-btn{
+    background:var(--canvas); border:1px solid var(--line); border-radius:20px;
+    padding:9px 18px; font-size:13.5px; font-weight:700; color:var(--ink); cursor:pointer;
+  }
+  .boards-link-btn:hover{ background:#efefef; }
+  .boards-modal{ max-width:560px; }
+  .boards-modal .modal-content{ padding-top:26px; }
+  .boards-logged-out{ text-align:center; padding:6px 4px 4px; }
+  .boards-logged-out-actions{ display:flex; gap:10px; justify-content:center; margin-top:6px; }
+  .boards-logged-out-actions .shop-btn{ flex:none; padding:12px 26px; }
+  .boards-login-link{
+    background:none; border:none; padding:0 4px; font:inherit; font-weight:700;
+    color:var(--red); cursor:pointer; text-decoration:underline;
+  }
+  .boards-login-link:hover{ color:var(--red-dark); }
+  .boards-tabs{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  .board-tab{
+    flex:none; padding:8px 16px; border-radius:18px; border:1px solid var(--line);
+    background:var(--canvas); font-size:13px; font-weight:700; color:var(--ink-soft); cursor:pointer;
+  }
+  .board-tab.active, .board-tab:hover{ background:var(--ink); color:#fff; border-color:var(--ink); }
+  .board-tab-new{
+    flex:none; padding:8px 16px; border-radius:18px; border:1px dashed var(--line);
+    background:none; font-size:13px; font-weight:700; color:var(--ink-soft); cursor:pointer;
+  }
+  .board-tab-new:hover{ border-color:var(--ink); color:var(--ink); }
+  .board-new-form{ display:flex; gap:6px; align-items:center; }
+  .board-new-form input{
+    padding:7px 12px; border:1px solid var(--line); border-radius:16px; font-size:13px;
+    font-family:inherit; width:150px;
+  }
+  .board-new-form button{
+    border:none; border-radius:14px; font-weight:700; font-size:12.5px; padding:7px 12px; cursor:pointer;
+  }
+  .board-new-form .board-new-confirm{ background:var(--red); color:#fff; }
+  .board-new-form .board-new-confirm:hover{ background:var(--red-dark); }
+  .board-new-form .board-new-cancel{ background:#efefef; color:var(--ink); }
+  .board-toolbar{ display:flex; gap:14px; justify-content:flex-end; margin:-4px 0 12px; }
+  .board-toolbar[hidden]{ display:none; }
+  .board-toolbar button{
+    background:none; border:none; padding:0; font-size:12.5px; font-weight:700;
+    color:var(--ink-soft); cursor:pointer; text-decoration:underline;
+  }
+  .board-toolbar button:hover{ color:var(--ink); }
+  .board-toolbar .board-delete-btn:hover{ color:var(--red); }
+  .boards-tile-grid{
+    display:flex; flex-direction:column; gap:2px; max-height:50vh; overflow-y:auto;
+    border-top:1px solid var(--line);
+  }
+  .board-tile-row{
+    display:flex; align-items:center; gap:12px; padding:10px 2px; border-bottom:1px solid var(--line);
+  }
+  .board-tile-thumb{
+    flex:none; width:44px; height:44px; border-radius:8px; background:#fff center/contain no-repeat;
+    border:1px solid var(--line); cursor:pointer;
+  }
+  .board-tile-name{
+    flex:1; min-width:0; font-size:13.5px; font-weight:600; color:var(--ink); cursor:pointer;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .board-tile-action select{
+    font-size:12.5px; font-family:inherit; padding:5px 8px; border-radius:12px; border:1px solid var(--line);
+    background:var(--canvas); color:var(--ink); max-width:130px;
+  }
+  .board-tile-remove{
+    flex:none; background:#efefef; border:none; width:26px; height:26px; border-radius:50%;
+    font-size:12px; font-weight:700; color:var(--ink-soft); cursor:pointer;
+  }
+  .board-tile-remove:hover{ background:#e2e2e2; color:var(--ink); }
+  .boards-status{
+    text-align:center; font-size:13px; color:var(--ink-soft); padding:20px 4px; margin:0;
+  }
+  .boards-status[hidden]{ display:none; }
+
   /* Netlify Identity's own widget ships with z-index:99 on its login/signup
      iframe, which is lower than every modal on this site (avatarBackdrop
      and friends use z-index:100+, up to 9999 for the feed toast). That
@@ -1927,6 +2007,16 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
     <p id="heroSubtitle">Started as my personal stack — now opening it up to yours.</p>
   </section>
 
+  <!-- Only shown while viewing the Favorites board (see activatePill()) —
+       opens the Personal Boards panel (#boardsBackdrop below) for
+       organizing saved picks into named collections. Visible whether
+       logged in or not; the panel itself explains signing in is needed for
+       boards specifically, same as the avatar account row does for that
+       feature. -->
+  <div class="favorites-boards-bar" id="favoritesBoardsBar" hidden>
+    <button type="button" class="boards-link-btn" id="openBoardsBtn">📌 Organize into Boards</button>
+  </div>
+
   <main class="pin-grid" id="pinGrid">
     <!-- Cards injected by JS from PRODUCTS array below -->
   </main>
@@ -2097,6 +2187,33 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
           <div class="avatar-coma-banner" id="avatarComaBanner" hidden></div>
           <div class="avatar-meters" id="avatarMeters"></div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Personal Boards (Pinterest-style) — see todo.html "User accounts &
+       personal boards". Account-only: boardsLoggedOut/boardsLoggedIn below
+       are toggled by renderBoardsPanel() in the script based on
+       currentIdentityUser, same account-gating pattern as the avatar
+       panel's own account row. -->
+  <div class="modal-backdrop" id="boardsBackdrop">
+    <div class="modal boards-modal" role="dialog" aria-modal="true" aria-labelledby="boardsModalTitle">
+      <button class="modal-close" id="boardsClose" aria-label="Close">✕</button>
+      <div class="modal-content">
+        <h2 id="boardsModalTitle">My Boards</h2>
+        <div id="boardsLoggedOut" class="boards-logged-out" hidden>
+          <p class="desc">Create named boards to organize your saved picks — log in or sign up to get started.</p>
+          <div class="boards-logged-out-actions">
+            <button type="button" class="shop-btn" id="boardsSignUpBtn">Sign Up</button>
+            <button type="button" class="boards-login-link" id="boardsLoginBtn">Log In</button>
+          </div>
+        </div>
+        <div id="boardsLoggedIn" class="boards-logged-in" hidden>
+          <div class="boards-tabs" id="boardsTabs"></div>
+          <div class="board-toolbar" id="boardToolbar" hidden></div>
+          <div class="boards-tile-grid" id="boardsTileGrid"></div>
+        </div>
+        <p class="boards-status" id="boardsStatus" hidden></p>
       </div>
     </div>
   </div>
@@ -3954,6 +4071,10 @@ function activatePill(btn){
   document.querySelectorAll('.cat-pill').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('navFavorites').classList.toggle('active', btn.dataset.filter === 'favorites');
+  // The "Organize into Boards" entry point only makes sense on the
+  // Favorites view — see #favoritesBoardsBar / openBoardsPanel() near
+  // Personal Boards below.
+  document.getElementById('favoritesBoardsBar').hidden = btn.dataset.filter !== 'favorites';
   applyFilters();
   // Switching categories rebuilds the grid to a different length, but the
   // browser keeps whatever scroll position the visitor was already at. If
@@ -4522,6 +4643,17 @@ if(claimNoBtn) claimNoBtn.addEventListener('click', () => {
 async function handleIdentityUserResolved(user){
   currentIdentityUser = user;
   if(user) markSignedUp();
+  // The account changed (logged in, logged out, or switched accounts) —
+  // any previously-fetched Personal Boards list is now stale (see the
+  // PERSONAL BOARDS block further down). This function is only ever
+  // actually called later, via a netlifyIdentity event, by which point the
+  // whole script (including that block) has already run once, so
+  // boardsState/boardsBackdrop are always defined here despite appearing
+  // later in the file.
+  boardsState.loaded = false;
+  boardsState.boards = [];
+  boardsState.activeBoardId = null;
+  if(boardsBackdrop.classList.contains('open')) renderBoardsPanel();
   renderAccountRow();
   if(!user){
     claimPending = false;
@@ -4558,6 +4690,351 @@ async function handleIdentityUserResolved(user){
     // successful check (next login, or next avatar-panel open) resolves it.
   }
   refreshClaimBanner();
+}
+
+/* =========================================================
+   PERSONAL BOARDS (Pinterest-style) — see todo.html "User accounts &
+   personal boards". Account-only: unlike the avatar/flat-Favorites list,
+   boards have no localStorage fallback or guest state to reconcile — they
+   live entirely on the server (boards-list.js / boards-manage.js), and
+   the panel just explains that + offers Sign Up/Log In when signed out,
+   same account-gating pattern as the avatar panel's own account row.
+   A board is independent of the flat "Saved" list (SAVED_SLUGS_KEY/
+   getStoredSavedSlugs elsewhere in this file): adding a tile to a board
+   here does NOT also toggle its heart-Save state, and removing it from a
+   board doesn't un-save it either — mirroring how a Pinterest pin can
+   exist outside any board. The "All Saved" tab is simply the existing
+   flat Favorites list shown inside this panel so a visitor has one place
+   to sort saves into boards, not a duplicate/competing save mechanism.
+   ========================================================= */
+function getProductBySlug(slug){
+  const i = SLUG_TO_INDEX[slug];
+  return i === undefined ? null : PRODUCTS[i];
+}
+function openBoardsTileProduct(slug){
+  const idx = SLUG_TO_INDEX[slug];
+  if(idx === undefined) return;
+  closeBoardsPanel();
+  openProductFromLink(idx);
+}
+
+const boardsBackdrop = document.getElementById('boardsBackdrop');
+// null activeBoardId means the "All Saved" tab; boardsCreating toggles the
+// "+ New Board" chip's inline name-entry form.
+let boardsState = { loaded:false, boards:[], activeBoardId:null };
+let boardsCreating = false;
+
+function openBoardsPanel(){
+  boardsBackdrop.classList.add('open');
+  renderBoardsPanel();
+}
+function closeBoardsPanel(){
+  boardsBackdrop.classList.remove('open');
+  boardsCreating = false;
+}
+document.getElementById('openBoardsBtn').addEventListener('click', openBoardsPanel);
+document.getElementById('boardsClose').addEventListener('click', closeBoardsPanel);
+boardsBackdrop.addEventListener('click', (e) => { if(e.target === boardsBackdrop) closeBoardsPanel(); });
+document.getElementById('boardsSignUpBtn').addEventListener('click', () => netlifyIdentity.open('signup'));
+document.getElementById('boardsLoginBtn').addEventListener('click', () => netlifyIdentity.open('login'));
+
+function setBoardsStatus(message){
+  const el = document.getElementById('boardsStatus');
+  if(message){ el.hidden = false; el.textContent = message; }
+  else { el.hidden = true; el.textContent = ''; }
+}
+
+async function renderBoardsPanel(){
+  const loggedOutEl = document.getElementById('boardsLoggedOut');
+  const loggedInEl = document.getElementById('boardsLoggedIn');
+  if(!currentIdentityUser){
+    loggedOutEl.hidden = false;
+    loggedInEl.hidden = true;
+    setBoardsStatus(null);
+    return;
+  }
+  loggedOutEl.hidden = true;
+  loggedInEl.hidden = false;
+
+  if(!boardsState.loaded){
+    setBoardsStatus('Loading your boards…');
+    document.getElementById('boardsTabs').innerHTML = '';
+    document.getElementById('boardsTileGrid').innerHTML = '';
+    document.getElementById('boardToolbar').hidden = true;
+    try{
+      const res = await authFetch('/.netlify/functions/boards-list');
+      const body = await res.json().catch(() => ({}));
+      if(!res.ok){
+        setBoardsStatus(body.error || "Couldn't load your boards — try again in a moment.");
+        return;
+      }
+      boardsState.boards = Array.isArray(body.boards) ? body.boards : [];
+      boardsState.loaded = true;
+    } catch(e){
+      setBoardsStatus("Couldn't reach the server — try again in a moment.");
+      return;
+    }
+  }
+  setBoardsStatus(null);
+  renderBoardsTabs();
+  renderBoardsTileGrid();
+}
+
+function renderBoardsTabs(){
+  const el = document.getElementById('boardsTabs');
+  el.innerHTML = '';
+
+  const allBtn = document.createElement('button');
+  allBtn.type = 'button';
+  allBtn.className = 'board-tab' + (boardsState.activeBoardId === null ? ' active' : '');
+  allBtn.textContent = 'All Saved';
+  allBtn.addEventListener('click', () => {
+    boardsState.activeBoardId = null;
+    boardsCreating = false;
+    renderBoardsTabs();
+    renderBoardsTileGrid();
+  });
+  el.appendChild(allBtn);
+
+  boardsState.boards.forEach(board => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'board-tab' + (boardsState.activeBoardId === board.id ? ' active' : '');
+    btn.textContent = board.name;
+    btn.addEventListener('click', () => {
+      boardsState.activeBoardId = board.id;
+      boardsCreating = false;
+      renderBoardsTabs();
+      renderBoardsTileGrid();
+    });
+    el.appendChild(btn);
+  });
+
+  if(boardsCreating){
+    const form = document.createElement('div');
+    form.className = 'board-new-form';
+    form.innerHTML = `
+      <input type="text" id="boardNewNameInput" placeholder="Board name" maxlength="40">
+      <button type="button" class="board-new-confirm">Add</button>
+      <button type="button" class="board-new-cancel">✕</button>`;
+    el.appendChild(form);
+    const input = document.getElementById('boardNewNameInput');
+    input.focus();
+    const confirmCreate = () => createBoard(input.value);
+    form.querySelector('.board-new-confirm').addEventListener('click', confirmCreate);
+    form.querySelector('.board-new-cancel').addEventListener('click', () => {
+      boardsCreating = false;
+      renderBoardsTabs();
+    });
+    input.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter'){ e.preventDefault(); confirmCreate(); }
+      else if(e.key === 'Escape'){ boardsCreating = false; renderBoardsTabs(); }
+    });
+  } else {
+    const newBtn = document.createElement('button');
+    newBtn.type = 'button';
+    newBtn.className = 'board-tab-new';
+    newBtn.textContent = '+ New Board';
+    newBtn.addEventListener('click', () => {
+      boardsCreating = true;
+      renderBoardsTabs();
+    });
+    el.appendChild(newBtn);
+  }
+}
+
+async function createBoard(rawName){
+  const name = (rawName || '').trim();
+  if(!name) return;
+  setBoardsStatus('Creating board…');
+  try{
+    const res = await authFetch('/.netlify/functions/boards-manage', {
+      method:'POST', body: JSON.stringify({ action:'create', name })
+    });
+    const body = await res.json().catch(() => ({}));
+    if(!res.ok){
+      setBoardsStatus(body.error || 'Could not create that board — try again.');
+      return;
+    }
+    boardsState.boards.push(body.board);
+    boardsState.activeBoardId = body.board.id;
+    boardsCreating = false;
+    setBoardsStatus(null);
+    renderBoardsTabs();
+    renderBoardsTileGrid();
+  } catch(e){
+    setBoardsStatus("Couldn't reach the server — try again in a moment.");
+  }
+}
+
+async function renameBoard(board){
+  const input = window.prompt('Rename board', board.name);
+  if(input === null) return;
+  const name = input.trim();
+  if(!name || name === board.name) return;
+  setBoardsStatus('Renaming…');
+  try{
+    const res = await authFetch('/.netlify/functions/boards-manage', {
+      method:'POST', body: JSON.stringify({ action:'rename', id: board.id, name })
+    });
+    const body = await res.json().catch(() => ({}));
+    if(!res.ok){
+      setBoardsStatus(body.error || 'Could not rename that board — try again.');
+      return;
+    }
+    board.name = name;
+    setBoardsStatus(null);
+    renderBoardsTabs();
+  } catch(e){
+    setBoardsStatus("Couldn't reach the server — try again in a moment.");
+  }
+}
+
+async function deleteBoard(board){
+  if(!window.confirm(`Delete "${board.name}"? This only removes the board — nothing gets unsaved from your Favorites list.`)) return;
+  setBoardsStatus('Deleting…');
+  try{
+    const res = await authFetch('/.netlify/functions/boards-manage', {
+      method:'POST', body: JSON.stringify({ action:'delete', id: board.id })
+    });
+    if(!res.ok){
+      const body = await res.json().catch(() => ({}));
+      setBoardsStatus(body.error || 'Could not delete that board — try again.');
+      return;
+    }
+    boardsState.boards = boardsState.boards.filter(b => b.id !== board.id);
+    boardsState.activeBoardId = null;
+    setBoardsStatus(null);
+    renderBoardsTabs();
+    renderBoardsTileGrid();
+  } catch(e){
+    setBoardsStatus("Couldn't reach the server — try again in a moment.");
+  }
+}
+
+async function addTileToBoard(board, slug){
+  try{
+    const res = await authFetch('/.netlify/functions/boards-manage', {
+      method:'POST', body: JSON.stringify({ action:'addTile', id: board.id, slug })
+    });
+    if(!res.ok){
+      const body = await res.json().catch(() => ({}));
+      setBoardsStatus(body.error || 'Could not add that item — try again.');
+      return;
+    }
+    if(!board.slugs.includes(slug)) board.slugs.push(slug);
+    renderBoardsTileGrid();
+  } catch(e){
+    setBoardsStatus("Couldn't reach the server — try again in a moment.");
+  }
+}
+
+async function removeTileFromBoard(board, slug){
+  try{
+    const res = await authFetch('/.netlify/functions/boards-manage', {
+      method:'POST', body: JSON.stringify({ action:'removeTile', id: board.id, slug })
+    });
+    if(!res.ok){
+      const body = await res.json().catch(() => ({}));
+      setBoardsStatus(body.error || 'Could not remove that item — try again.');
+      return;
+    }
+    board.slugs = board.slugs.filter(s => s !== slug);
+    renderBoardsTileGrid();
+  } catch(e){
+    setBoardsStatus("Couldn't reach the server — try again in a moment.");
+  }
+}
+
+function renderBoardsTileGrid(){
+  const gridEl = document.getElementById('boardsTileGrid');
+  const toolbarEl = document.getElementById('boardToolbar');
+  gridEl.innerHTML = '';
+
+  const activeBoard = boardsState.activeBoardId === null
+    ? null
+    : boardsState.boards.find(b => b.id === boardsState.activeBoardId);
+
+  if(activeBoard){
+    toolbarEl.hidden = false;
+    toolbarEl.innerHTML = `
+      <button type="button" class="board-rename-btn">Rename</button>
+      <button type="button" class="board-delete-btn">Delete board</button>`;
+    toolbarEl.querySelector('.board-rename-btn').addEventListener('click', () => renameBoard(activeBoard));
+    toolbarEl.querySelector('.board-delete-btn').addEventListener('click', () => deleteBoard(activeBoard));
+  } else {
+    toolbarEl.hidden = true;
+    toolbarEl.innerHTML = '';
+  }
+
+  const slugs = activeBoard ? activeBoard.slugs : getStoredSavedSlugs();
+  if(slugs.length === 0){
+    const empty = document.createElement('p');
+    empty.className = 'boards-status';
+    empty.textContent = activeBoard
+      ? 'Nothing in this board yet — add items from the "All Saved" tab.'
+      : "You haven't saved anything yet. Tap Save on any pin, then come back here to organize it.";
+    gridEl.appendChild(empty);
+    return;
+  }
+
+  slugs.forEach(slug => {
+    const product = getProductBySlug(slug);
+    if(!product) return; // a product that's since been removed from the site
+    const row = document.createElement('div');
+    row.className = 'board-tile-row';
+
+    const thumb = document.createElement('div');
+    thumb.className = 'board-tile-thumb';
+    thumb.style.background = product.img
+      ? `#fff url('${product.img}') center/contain no-repeat`
+      : (product.color || '#eee');
+    thumb.addEventListener('click', () => openBoardsTileProduct(slug));
+
+    const name = document.createElement('div');
+    name.className = 'board-tile-name';
+    name.textContent = product.name;
+    name.addEventListener('click', () => openBoardsTileProduct(slug));
+
+    row.appendChild(thumb);
+    row.appendChild(name);
+
+    if(activeBoard){
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'board-tile-remove';
+      removeBtn.textContent = '✕';
+      removeBtn.title = 'Remove from this board';
+      removeBtn.addEventListener('click', () => removeTileFromBoard(activeBoard, slug));
+      row.appendChild(removeBtn);
+    } else if(boardsState.boards.length > 0){
+      const actionWrap = document.createElement('div');
+      actionWrap.className = 'board-tile-action';
+      const select = document.createElement('select');
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = '+ Add to board';
+      select.appendChild(placeholder);
+      boardsState.boards.forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = String(b.id);
+        opt.textContent = b.slugs.includes(slug) ? `${b.name} ✓ (tap to remove)` : b.name;
+        select.appendChild(opt);
+      });
+      select.addEventListener('change', () => {
+        const boardId = Number(select.value);
+        if(!boardId) return;
+        const board = boardsState.boards.find(b => b.id === boardId);
+        if(board.slugs.includes(slug)) removeTileFromBoard(board, slug);
+        else addTileToBoard(board, slug);
+        select.value = '';
+      });
+      actionWrap.appendChild(select);
+      row.appendChild(actionWrap);
+    }
+
+    gridEl.appendChild(row);
+  });
 }
 
 // See the comment on #authGateBackdrop above. If the page loaded with a

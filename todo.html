@@ -169,20 +169,25 @@
   <section>
     <h2>User accounts &amp; personal boards</h2>
     <ul>
+      <li class="is-done">
+        <div class="box checked">✓</div>
+        <div class="item-text"><b>Visitor accounts (sign up / log in) <span class="tag done">Done</span></b>
+        <span>Live and deployed: a Postgres schema (Netlify Database/Neon) with <code>users</code>, <code>avatars</code>, and <code>saved_tiles</code> tables; five Netlify Functions (<code>avatar-get</code>, <code>avatar-save</code>, <code>tiles-sync</code>, <code>claim-avatar</code>, <code>avatar-name-check</code>) enforcing globally-unique avatar names; and Netlify Identity wired into the avatar panel (log in/sign up/log out row, plus an optional "bring your existing avatar into this account?" prompt for anyone who already had one on their device). Guests who never log in are completely unaffected — the avatar and favorites board still work exactly as before, purely in localStorage. Real signups, logins, and avatar claims have been tested live on mandeleon.com. Personal boards below build directly on this. The one open issue is tracked separately right below — outbound confirmation emails aren't currently arriving.</span></div>
+      </li>
       <li>
         <div class="box"></div>
-        <div class="item-text"><b>Visitor accounts (sign up / log in) <span class="tag needs-input">Code written, needs deploy + setup</span></b>
-        <span>Built: a Postgres schema (Netlify Database/Neon) with <code>users</code>, <code>avatars</code>, and <code>saved_tiles</code> tables; five Netlify Functions (<code>avatar-get</code>, <code>avatar-save</code>, <code>tiles-sync</code>, <code>claim-avatar</code>, <code>avatar-name-check</code>) enforcing globally-unique avatar names; and Netlify Identity wired into the avatar panel (log in/sign up/log out row, plus an optional "bring your existing avatar into this account?" prompt for anyone who already had one on their device — declining starts a clean, account-linked avatar instead). Guests who never log in are completely unaffected — the avatar and favorites board still work exactly as before, purely in localStorage. Verified locally: the SQL migration runs clean, and every login/claim/decline/name-clash code path was tested against a mocked backend with no errors. What's still needed from you before it's actually live: upload the new files (<code>package.json</code>, <code>netlify.toml</code>, <code>.gitignore</code>, and everything under <code>netlify/</code>) alongside the updated <code>index.html</code>, then click <b>Enable Identity</b> once in Netlify's dashboard under Site settings → Identity (that one toggle can't be done for you through the connectors). After that, personal boards below can build on this directly.</span></div>
+        <div class="item-text"><b>Fix outbound confirmation emails (Resend SMTP) <span class="tag needs-input">Waiting on Netlify support</span></b>
+        <span>New signups create the account correctly, but the confirmation email itself isn't arriving. Root-caused to the outbound SMTP connection: Resend's domain is fully verified (DKIM/SPF/DMARC all green) and the SMTP host/port/username/password are all confirmed correctly saved in Netlify Identity's settings, tried on both port 465 and 587 — but Resend's own delivery logs show zero incoming connection attempts on any test, which points at something on Netlify's sending side rather than the Resend config. A support ticket is open with Netlify; this needs their response before there's anything more to try from our end.</span></div>
       </li>
       <li>
         <div class="box"></div>
         <div class="item-text"><b>Custom-built login/signup form (replace Netlify's popup)</b>
         <span>Requested: a "show password" eye icon on the sign-up/login password field. Not possible with the current setup — that field lives inside Netlify Identity's own hosted popup (technically a separate embedded mini-site), and browsers block a site from reaching into and modifying another company's embedded content like that, so no CSS/JS trick from our side can add a button to it. The real fix is building a fully custom sign-up/login form (styled to match the site, with its own password-reveal toggle and any other niceties) that talks to the same Netlify Identity backend directly, instead of relying on Netlify's built-in popup UI. This is a real project — designing and building the form, then wiring it to the existing auth endpoints — not a quick fix, so it's tracked here rather than attempted inline.</span></div>
       </li>
-      <li>
-        <div class="box"></div>
-        <div class="item-text"><b>Personal boards (Pinterest-style)</b>
-        <span>Once logged in, visitors create their own named boards and save any product, video, or article on the site into them — organizing and revisiting their favorites anytime, the same way Pinterest boards work. Builds on top of visitor accounts above.</span></div>
+      <li class="is-done">
+        <div class="box checked">✓</div>
+        <div class="item-text"><b>Personal boards (Pinterest-style) <span class="tag done">Done</span></b>
+        <span>Live: a "📌 Organize into Boards" button appears on the Favorites tab for logged-in visitors, opening a panel where they can create named boards (e.g. "Sleep Stack"), rename or delete them, and add/remove any saved product, video, or article into one or more boards at once — a tile can belong to more than one board, same as Pinterest. An "All Saved" tab always shows everything favorited, with a dropdown on each tile to add it into a board; each named board's own tab shows just its tiles with a one-tap remove. Two new Netlify Functions (<code>boards-list</code>, <code>boards-manage</code>) and two new database tables (<code>boards</code>, <code>board_tiles</code>) back this — account-only, so it's not available to guests browsing without logging in (their plain Favorites list still works as before). <b>One setup step needed:</b> the new tables won't create themselves — see the delivery notes for how to run the migration in Netlify's SQL console.</span></div>
       </li>
     </ul>
   </section>
