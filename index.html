@@ -4754,7 +4754,12 @@ function renderAccountRow(){
     loginBtn.className = 'account-link-btn';
     loginBtn.textContent = 'Log In';
     loginBtn.addEventListener('click', () => netlifyIdentity.open('login'));
-    el.append('To save your avatar to your account: ', signUpBtn, ' or ', loginBtn);
+    // Each button is paired with the question that qualifies it, so a
+    // visitor self-selects the right one by reading instead of having to
+    // guess between two bare, equally-weighted options (feedback from real
+    // testing: showing "Sign Up" and "Log In" with no context read as
+    // confusing to someone who already knows they've registered elsewhere).
+    el.append('New here? ', signUpBtn, '  ·  Already signed up? ', loginBtn);
   }
 }
 function refreshClaimBanner(){
