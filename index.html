@@ -1411,10 +1411,23 @@
      regular view share one instance of it). Deliberately understated: this
      is an optional upgrade path for an avatar that already works fine
      without an account, not a gate in front of anything. */
+  /* Must sit above the avatar panel modal itself (both share the same base
+     .modal-backdrop z-index, but this one needs to appear as an interstitial
+     layered on top of it, and it comes earlier in the DOM so would otherwise
+     render underneath). */
+  #saveAvatarPromptBackdrop{ z-index:101; }
   .avatar-account-row{
     display:flex; align-items:center; justify-content:center; gap:6px; flex-wrap:wrap;
     font-size:13px; color:var(--ink-soft); text-align:center;
     margin:0 0 14px; padding:0 20px 12px; border-bottom:1px solid var(--line);
+  }
+  /* The logged-out state is an actual call-to-action (save this avatar to an
+     account), not a status caption — give it a highlighted banner treatment
+     so it reads as a prompt worth acting on, not fine print. The logged-in
+     "Signed in as…/Log out" state stays plain, since it's just status. */
+  .avatar-account-row.prompt{
+    font-size:14px; color:var(--ink); background:#fff4f4; border:1px solid #f5c6cb;
+    border-radius:12px; padding:10px 14px; margin:0 0 16px; border-bottom:1px solid #f5c6cb;
   }
   .avatar-account-row .account-link-btn{
     background:none; border:none; padding:0; font:inherit; font-weight:700;
@@ -2083,6 +2096,27 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
         <div class="boards-logged-out-actions">
           <button type="button" class="shop-btn" id="authErrorSignUpBtn">Sign Up</button>
           <button type="button" class="boards-login-link" id="authErrorLoginBtn">Log In</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- One-time interstitial right after creating a brand-new avatar,
+       separate from the persistent "New here? Sign Up / Already signed up?
+       Log In" banner inside the avatar panel itself (that banner stays as an
+       ongoing option for later — this modal is the up-front nudge so a
+       first-time visitor doesn't have to notice a small banner on their own
+       to realize saving their avatar is possible). Dismissing it (✕) just
+       continues on to the avatar panel unsaved, same as always. -->
+  <div class="modal-backdrop" id="saveAvatarPromptBackdrop">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="saveAvatarPromptTitle">
+      <button class="modal-close" id="saveAvatarPromptClose" aria-label="Close">✕</button>
+      <div class="modal-content" style="text-align:center;">
+        <h2 id="saveAvatarPromptTitle">🐣 Save Your Avatar</h2>
+        <p class="desc">Sign up to save this avatar to an account so it's never lost — you'll get a quick email to confirm.</p>
+        <div class="boards-logged-out-actions">
+          <button type="button" class="shop-btn" id="saveAvatarPromptSignUpBtn">Sign Up</button>
+          <button type="button" class="boards-login-link" id="saveAvatarPromptLoginBtn">Log In</button>
         </div>
       </div>
     </div>
@@ -3876,6 +3910,7 @@ document.getElementById('avatarNameForm').addEventListener('submit', (e) => {
   avatarPhotoLabel.classList.remove('has-photo');
   renderAvatarStrip();
   openAvatarPanel();
+  openSaveAvatarPrompt();
 });
 
 // Confetti burst for the random Perfect Feed/Boost moment (todo.html) —
@@ -4724,6 +4759,7 @@ function renderAccountRow(){
     return;
   }
   el.hidden = false;
+  el.classList.toggle('prompt', !currentIdentityUser);
   if(currentIdentityUser){
     const emailSpan = document.createElement('span');
     emailSpan.className = 'avatar-account-email';
@@ -4912,6 +4948,25 @@ document.getElementById('boardsLoginBtn').addEventListener('click', () => netlif
   backdrop.addEventListener('click', (e) => { if(e.target === backdrop) close(); });
   document.getElementById('authErrorSignUpBtn').addEventListener('click', () => { close(); netlifyIdentity.open('signup'); });
   document.getElementById('authErrorLoginBtn').addEventListener('click', () => { close(); netlifyIdentity.open('login'); });
+})();
+
+// One-time "save your avatar" interstitial, shown right after a brand-new
+// avatar is created (see openSaveAvatarPrompt() call in the avatarNameForm
+// submit handler). Offers both Sign Up and Log In, same reasoning as the
+// account-row banner: this device can't tell whether the visitor already
+// has an account elsewhere. Dismissing (✕) just proceeds — the persistent
+// banner in the avatar panel remains as a standing option after this.
+function openSaveAvatarPrompt(){
+  if(currentIdentityUser) return; // already signed in — nothing to prompt
+  document.getElementById('saveAvatarPromptBackdrop').classList.add('open');
+}
+(function setupSaveAvatarPromptModal(){
+  const backdrop = document.getElementById('saveAvatarPromptBackdrop');
+  const close = () => backdrop.classList.remove('open');
+  document.getElementById('saveAvatarPromptClose').addEventListener('click', close);
+  backdrop.addEventListener('click', (e) => { if(e.target === backdrop) close(); });
+  document.getElementById('saveAvatarPromptSignUpBtn').addEventListener('click', () => { close(); netlifyIdentity.open('signup'); });
+  document.getElementById('saveAvatarPromptLoginBtn').addEventListener('click', () => { close(); netlifyIdentity.open('login'); });
 })();
 
 function setBoardsStatus(message){
