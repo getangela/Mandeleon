@@ -4584,20 +4584,60 @@ async function authFetch(path, opts){
 // above. Never throws into its caller — a network hiccup just means the
 // account copy is briefly behind; the local copy (source of truth for the
 // signed-out/offline case) is unaffected either way.
-function syncAvatarToServer(avatar){
+//
+// IMPORTANT: this used to only ever surface a 409 (name taken) failure —
+// every OTHER failure (an expired/rejected login session giving a 401, a
+// server error, etc.) was completely silent: the device kept working fine
+// against its own local copy, with no sign anything was wrong, while the
+// account's saved copy quietly fell further and further behind. That's
+// exactly what made a second device look like it had "an old version" of
+// the avatar with zero explanation — found via a real report (Sept 12):
+// a Mac kept updating locally for days while a phone logging into the same
+// account kept pulling a stale copy, with no error ever having been seen.
+// `isRetry` limits this to exactly one retry (after forcing a token
+// refresh) so a genuinely logged-out session doesn't loop forever.
+function syncAvatarToServer(avatar, isRetry){
   if(!currentIdentityUser || !isAvatarLinked() || claimPending) return;
   authFetch('/.netlify/functions/avatar-save', { method:'POST', body: JSON.stringify(avatar) })
     .then(async (res) => {
+      if(res.ok) return;
       if(res.status === 409){
         const body = await res.json().catch(() => ({}));
         showFeedToast(body.error || 'That avatar name is taken on your account — try renaming it.');
+        return;
       }
+      if(res.status === 401 && !isRetry){
+        // Sent with what looked like a valid token, but the server no
+        // longer accepts it — force a real refresh and try exactly once
+        // more before giving up and warning.
+        try{
+          await currentIdentityUser.jwt(true);
+          return syncAvatarToServer(avatar, true);
+        } catch(e){ /* refresh itself failed — fall through to the warning below */ }
+      }
+      console.error('avatar-save failed', res.status);
+      showFeedToast("Couldn't save to your account — try logging out and back in.");
     })
-    .catch(() => { /* offline/network issue — will retry on the next save */ });
+    .catch(() => {
+      // A genuine network failure (offline, DNS, etc.) — not surfaced like
+      // the rejections above since this is expected occasionally and the
+      // very next save (or next time the avatar panel opens) retries it
+      // automatically.
+    });
 }
-function syncTilesToServer(slugs){
+function syncTilesToServer(slugs, isRetry){
   if(!currentIdentityUser || !isAvatarLinked() || claimPending) return;
   authFetch('/.netlify/functions/tiles-sync', { method:'POST', body: JSON.stringify({ slugs }) })
+    .then(async (res) => {
+      if(res.ok) return;
+      if(res.status === 401 && !isRetry){
+        try{
+          await currentIdentityUser.jwt(true);
+          return syncTilesToServer(slugs, true);
+        } catch(e){ /* refresh itself failed — fall through */ }
+      }
+      console.error('tiles-sync failed', res.status);
+    })
     .catch(() => { /* offline/network issue — will retry on the next save */ });
 }
 
