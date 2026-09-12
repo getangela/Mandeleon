@@ -973,11 +973,18 @@
   }
   .stack-badge img{display:block; height:7px; width:auto;}
   .overlay-top{display:flex; justify-content:flex-end;}
-  .save-btn{
-    background:var(--red); color:#fff; border:none; padding:9px 16px; border-radius:20px;
-    font-weight:700; font-size:13px;
+  /* Heart-shaped Save toggle — same icon and 22px size as the outline heart
+     in the top nav (#navFavorites), so "saving" a tile visually matches
+     "viewing your Favorites". White outline (for contrast against any photo)
+     until saved, then fills solid red — same on/off pattern as the nav icon. */
+  .save-heart-btn{
+    width:40px; height:40px; border-radius:50%; border:none; background:none;
+    color:#fff; display:flex; align-items:center; justify-content:center;
+    filter:drop-shadow(0 1px 3px rgba(0,0,0,.45));
   }
-  .save-btn.saved{background:var(--ink);}
+  .save-heart-btn:hover{background:rgba(255,255,255,.15);}
+  .save-heart-btn.saved{color:var(--red);}
+  .save-heart-btn.saved svg{fill:currentColor;}
   .overlay-bottom{display:flex; justify-content:flex-end; align-items:flex-end; gap:8px;}
   .feed-card-btn{
     background:var(--ink); color:#fff; border:none; padding:9px 12px; border-radius:20px;
@@ -3978,7 +3985,9 @@ function render(list){
         ${visualInner}
         <div class="pin-overlay">
           <div class="overlay-top">
-            <button class="save-btn ${saved.has(idx)?'saved':''}" data-save="${idx}">${saved.has(idx)?'Saved':'Save'}</button>
+            <button class="save-heart-btn ${saved.has(idx)?'saved':''}" data-save="${idx}" title="${saved.has(idx)?'Remove from Favorites':'Save to Favorites'}" aria-label="${saved.has(idx)?'Remove from Favorites':'Save to Favorites'}" aria-pressed="${saved.has(idx)}">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            </button>
           </div>
           <div class="overlay-bottom">
             <div class="overlay-bottom-right">
@@ -4013,12 +4022,23 @@ function render(list){
   });
 
   // wire up save buttons after render
-  grid.querySelectorAll('.save-btn').forEach(btn => {
+  grid.querySelectorAll('.save-heart-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const idx = parseInt(btn.dataset.save, 10);
-      if(saved.has(idx)){ saved.delete(idx); btn.classList.remove('saved'); btn.textContent = 'Save'; }
-      else { saved.add(idx); btn.classList.add('saved'); btn.textContent = 'Saved'; }
+      if(saved.has(idx)){
+        saved.delete(idx);
+        btn.classList.remove('saved');
+        btn.setAttribute('aria-pressed', 'false');
+        btn.title = 'Save to Favorites';
+        btn.setAttribute('aria-label', 'Save to Favorites');
+      } else {
+        saved.add(idx);
+        btn.classList.add('saved');
+        btn.setAttribute('aria-pressed', 'true');
+        btn.title = 'Remove from Favorites';
+        btn.setAttribute('aria-label', 'Remove from Favorites');
+      }
       setStoredSavedSlugs(Array.from(saved).map(i => PRODUCTS[i].slug));
       // On the Favorites board, the Save state IS the filter criterion, so
       // unsaving a pin here should drop it from view immediately rather
@@ -4600,20 +4620,6 @@ function openProductFromLink(idx){
    avatar-name-check.js.
    ========================================================= */
 const AVATAR_LINKED_KEY = 'mandeleon_avatar_linked_v1';
-// Tracks whether this browser has ever completed an Identity login (signup
-// confirmation counts — that's the first successful login for a brand new
-// account). Once true, the account-row CTA switches from "Sign Up" to
-// "Log In" permanently on this device, even after logging out — a visitor
-// who's already registered shouldn't be invited to sign up again.
-const HAS_SIGNED_UP_KEY = 'mandeleon_has_signed_up_v1';
-function hasEverSignedUp(){
-  try{ return localStorage.getItem(HAS_SIGNED_UP_KEY) === '1'; }
-  catch(e){ return false; }
-}
-function markSignedUp(){
-  try{ localStorage.setItem(HAS_SIGNED_UP_KEY, '1'); }
-  catch(e){ /* storage unavailable — CTA just won't remember across reloads this session */ }
-}
 let currentIdentityUser = null;
 // True only while the "bring your avatar in?" banner is up and unresolved —
 // blocks background syncing so a fresh login never silently uploads an
@@ -4729,20 +4735,26 @@ function renderAccountRow(){
     logoutBtn.addEventListener('click', () => netlifyIdentity.logout());
     el.append('Signed in as ', emailSpan, ' · ', logoutBtn);
   } else {
+    // Always offer both — there's no reliable way to tell from this device
+    // alone whether this visitor already has an account elsewhere (e.g. they
+    // signed up and confirmed on a different browser/device, so THIS device
+    // has never completed a login even though the account already exists).
+    // Guessing "Sign Up" in that case sends a returning visitor into signing
+    // up again for an email that's already registered — confirmed real bug,
+    // Sept 12 testing. Showing both, same pattern as the other auth prompts
+    // in the app (e.g. the expired-link modal), lets the visitor pick
+    // correctly regardless of this device's own history.
+    const signUpBtn = document.createElement('button');
+    signUpBtn.type = 'button';
+    signUpBtn.className = 'account-link-btn';
+    signUpBtn.textContent = 'Sign Up';
+    signUpBtn.addEventListener('click', () => netlifyIdentity.open('signup'));
     const loginBtn = document.createElement('button');
     loginBtn.type = 'button';
     loginBtn.className = 'account-link-btn';
-    // First time on this device: only offer Sign Up — there's no account to
-    // log into yet. Once this device has ever completed a login (signup
-    // confirmation counts), switch permanently to Log In instead.
-    if(hasEverSignedUp()){
-      loginBtn.textContent = 'Log In';
-      loginBtn.addEventListener('click', () => netlifyIdentity.open('login'));
-    } else {
-      loginBtn.textContent = 'Sign Up';
-      loginBtn.addEventListener('click', () => netlifyIdentity.open('signup'));
-    }
-    el.append('To save your avatar to your account ', loginBtn);
+    loginBtn.textContent = 'Log In';
+    loginBtn.addEventListener('click', () => netlifyIdentity.open('login'));
+    el.append('To save your avatar to your account: ', signUpBtn, ' or ', loginBtn);
   }
 }
 function refreshClaimBanner(){
@@ -4790,7 +4802,6 @@ if(claimNoBtn) claimNoBtn.addEventListener('click', () => {
 
 async function handleIdentityUserResolved(user){
   currentIdentityUser = user;
-  if(user) markSignedUp();
   // The account changed (logged in, logged out, or switched accounts) —
   // any previously-fetched Personal Boards list is now stale (see the
   // PERSONAL BOARDS block further down). This function is only ever
@@ -5232,10 +5243,18 @@ if(typeof netlifyIdentity !== 'undefined'){
     const avatar = getAvatar();
     if(!avatar || !user || !user.email) return;
     const savedSlugs = Array.from(saved).map(i => PRODUCTS[i] && PRODUCTS[i].slug).filter(Boolean);
+    // keepalive:true is the important part here — right after signing up,
+    // the very next thing a visitor does is switch to their Mail app to find
+    // the confirmation email. Without keepalive, backgrounding/navigating
+    // away from the tab at that exact moment can cancel this fetch mid-flight
+    // (confirmed real-world failure mode, not just theoretical), silently
+    // losing the stash and defeating the whole point of this mechanism.
+    // keepalive lets the browser finish sending it even as the page unloads.
     fetch('/.netlify/functions/stash-pending-avatar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: user.email, avatar, savedSlugs })
+      body: JSON.stringify({ email: user.email, avatar, savedSlugs }),
+      keepalive: true
     }).catch(() => { /* best-effort — see comment above */ });
   });
   // A confirmation/recovery link that's expired, already used, or points at
