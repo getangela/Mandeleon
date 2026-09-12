@@ -23,3 +23,4 @@ CREATE TABLE IF NOT EXISTS pending_avatar_claims (
   data JSONB NOT NULL,
   saved_slugs JSONB NOT NULL DEFAULT '[]'::jsonb,
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  );
