@@ -944,7 +944,6 @@
   .pin-card.hidden{display:none;}
   .pin-card.no-click{cursor:default;}
   .pin-card.no-click:hover{transform:none;}
-  .pin-card.no-click .visit-btn{display:none;}
 
   .pin-visual{
     position:relative; display:flex; align-items:center; justify-content:center;
@@ -979,11 +978,7 @@
     font-weight:700; font-size:13px;
   }
   .save-btn.saved{background:var(--ink);}
-  .overlay-bottom{display:flex; justify-content:space-between; align-items:flex-end; gap:8px;}
-  .visit-btn{
-    background:#fff; color:var(--ink); border:none; padding:9px 12px; border-radius:20px;
-    font-weight:700; font-size:12px; display:flex; align-items:center; gap:4px;
-  }
+  .overlay-bottom{display:flex; justify-content:flex-end; align-items:flex-end; gap:8px;}
   .feed-card-btn{
     background:var(--ink); color:#fff; border:none; padding:9px 12px; border-radius:20px;
     font-weight:700; font-size:12px; display:flex; align-items:center; gap:4px;
@@ -1057,6 +1052,12 @@
   .shop-btn{
     background:var(--red); color:#fff; padding:12px 22px; border-radius:24px; border:none;
     font-weight:700; font-size:14.5px; flex:1 1 140px; text-align:center;
+  }
+  /* The modal's own Buy Now/View Product/Watch/Read link is more compact than
+     shop-btn's other uses (Sign Up, Confirm Email, etc.) specifically so it
+     can sit on the same row as Copy Link, Share, and Feed without wrapping. */
+  #modalLink{
+    padding:11px 16px; font-size:13.5px; flex:0 1 auto; white-space:nowrap;
   }
   .shop-btn:hover{background:var(--red-dark);}
   .copy-link-btn{
@@ -2616,10 +2617,6 @@ function requestAccess(action){
 
 function performAction(action){
   if(action.type === 'modal'){ openModal(action.idx); }
-  else if(action.type === 'visit'){
-    const p = PRODUCTS[action.idx];
-    window.open(p.link, '_blank', 'noopener');
-  }
   else if(action.type === 'exotics'){ requestExoticsAccess(action.btn); }
   else if(action.type === 'feed'){ performFeed(action.idx); }
 }
@@ -3984,13 +3981,10 @@ function render(list){
             <button class="save-btn ${saved.has(idx)?'saved':''}" data-save="${idx}">${saved.has(idx)?'Saved':'Save'}</button>
           </div>
           <div class="overlay-bottom">
-            <div class="overlay-bottom-left">
+            <div class="overlay-bottom-right">
               ${feedableMeters.length > 0
                 ? `<button class="feed-card-btn${isExoticBoost ? ' exotic-boost' : ''}" data-feed="${idx}">${isExoticBoost ? '⚡ Boost' : '🍽️ Feed'}</button>`
                 : (exoticLocked ? `<span class="feed-locked-hint" title="Boosting unlocks at Rank ${EXOTICS_UNLOCK_LEVEL}">🔒 Boost</span>` : '')}
-            </div>
-            <div class="overlay-bottom-right">
-              ${isClickable ? `<button class="visit-btn" data-visit="${idx}">↗ Visit</button>` : ''}
             </div>
           </div>
         </div>
@@ -4031,19 +4025,6 @@ function render(list){
       // than leaving a stale "unsaved" card sitting on the board.
       const activeCatNow = document.querySelector('.cat-pill.active').dataset.filter;
       if(activeCatNow === 'favorites') applyFilters();
-    });
-  });
-
-  // wire up "Visit" quick-links — these also require the email gate,
-  // and redirect to Exotics for cross-listed prescription items.
-  grid.querySelectorAll('.visit-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const idx = parseInt(btn.dataset.visit, 10);
-      const p = PRODUCTS[idx];
-      const isGated = (p.exoticsLinked && !exoticsUnlocked) || (p.cats.includes('exotics') && !(activeCatNow === 'exotics' && exoticsUnlocked));
-      if(isGated){ requestExoticsAccess(document.getElementById('exoticsPill')); }
-      else{ requestAccess({type:'visit', idx}); }
     });
   });
 
@@ -4242,7 +4223,7 @@ function openModal(idx){
     link.textContent = 'Read Article';
   } else {
     link.rel = p.affiliate === true ? 'sponsored noopener' : 'noopener';
-    link.textContent = p.affiliate === true ? 'Shop This Product' : 'View Product';
+    link.textContent = p.affiliate === true ? 'Buy Now' : 'View Product';
   }
   document.getElementById('modalDisclosure').textContent = isVideo
     ? (p.source ? `From ${p.source} on YouTube — not a product link.` : 'From my YouTube channel — not a product link.')
@@ -4266,7 +4247,7 @@ function openModal(idx){
     feedBtn.hidden = false;
     feedBtn.textContent = modalAvatar
       ? (isExoticBoost ? `⚡ Boost ${modalAvatar.name}` : `🍽️ Feed ${modalAvatar.name}`)
-      : '🐣 Create Your Avatar to Feed';
+      : '🐣 Feed Avatar';
   } else {
     feedBtn.hidden = true;
   }
