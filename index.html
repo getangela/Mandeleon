@@ -2044,6 +2044,28 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
     </div>
   </div>
 
+  <!-- A confirmation/recovery/invite link that's expired, already used, or
+       points at a deleted account fires Netlify Identity's 'error' event
+       (see the comment on #authGateBackdrop above for the related token-gate
+       flow). This used to just flash a 2.8s showFeedToast — but a message
+       the visitor needs to actually read and act on shouldn't vanish on its
+       own timer, so it's a normal modal instead: it stays open, with real
+       Sign Up / Log In buttons, until the visitor takes one of those actions
+       or closes it themselves. -->
+  <div class="modal-backdrop" id="authErrorBackdrop">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="authErrorTitle">
+      <button class="modal-close" id="authErrorClose" aria-label="Close">✕</button>
+      <div class="modal-content" style="text-align:center;">
+        <h2 id="authErrorTitle">Link Expired</h2>
+        <p class="desc">This link is expired or already used — try signing up or logging in again.</p>
+        <div class="boards-logged-out-actions">
+          <button type="button" class="shop-btn" id="authErrorSignUpBtn">Sign Up</button>
+          <button type="button" class="boards-login-link" id="authErrorLoginBtn">Log In</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="gate-backdrop" id="gateBackdrop">
     <div class="gate-modal" role="dialog" aria-modal="true" aria-labelledby="ageGateTitle">
       <div class="gate-icon">🔞</div>
@@ -2192,7 +2214,8 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
           </form>
         </div>
         <div id="avatarView" class="avatar-view" hidden>
-          <div class="avatar-age-display" id="avatarAgeDisplay"></div>
+          <p class="avatar-level-label" id="avatarLevelLabel"></p>
+          <p class="avatar-status-line" id="avatarStatusLine"></p>
           <div class="avatar-visual-wrap">
             <div class="avatar-visual" id="avatarVisual"></div>
             <button type="button" class="avatar-photo-edit-btn" id="avatarPhotoEditBtn" title="Add or change photo" aria-label="Add or change avatar photo">📷</button>
@@ -2200,8 +2223,7 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
           </div>
           <h2 id="avatarModalTitle"></h2>
           <p class="avatar-vitality-label" id="avatarVitalityLabel"></p>
-          <p class="avatar-level-label" id="avatarLevelLabel"></p>
-          <p class="avatar-status-line" id="avatarStatusLine"></p>
+          <div class="avatar-age-display" id="avatarAgeDisplay"></div>
           <div class="avatar-coma-banner" id="avatarComaBanner" hidden></div>
           <div class="avatar-meters" id="avatarMeters"></div>
         </div>
@@ -4762,6 +4784,18 @@ boardsBackdrop.addEventListener('click', (e) => { if(e.target === boardsBackdrop
 document.getElementById('boardsSignUpBtn').addEventListener('click', () => netlifyIdentity.open('signup'));
 document.getElementById('boardsLoginBtn').addEventListener('click', () => netlifyIdentity.open('login'));
 
+// See the comment on #authErrorBackdrop above — this modal replaces the old
+// 2.8s toast for an expired/already-used auth link, so it needs its own
+// close + action wiring rather than the toast's auto-hide timer.
+(function setupAuthErrorModal(){
+  const backdrop = document.getElementById('authErrorBackdrop');
+  const close = () => backdrop.classList.remove('open');
+  document.getElementById('authErrorClose').addEventListener('click', close);
+  backdrop.addEventListener('click', (e) => { if(e.target === backdrop) close(); });
+  document.getElementById('authErrorSignUpBtn').addEventListener('click', () => { close(); netlifyIdentity.open('signup'); });
+  document.getElementById('authErrorLoginBtn').addEventListener('click', () => { close(); netlifyIdentity.open('login'); });
+})();
+
 function setBoardsStatus(message){
   const el = document.getElementById('boardsStatus');
   if(message){ el.hidden = false; el.textContent = message; }
@@ -5114,7 +5148,7 @@ if(typeof netlifyIdentity !== 'undefined'){
     const widget = document.getElementById('netlify-identity-widget');
     if(widget) widget.style.display = 'none';
     if(location.hash) history.replaceState(null, '', location.pathname + location.search);
-    showFeedToast('That link has expired or already been used — try signing up or logging in again.');
+    document.getElementById('authErrorBackdrop').classList.add('open');
   });
 
   if(pendingAuthHash){
