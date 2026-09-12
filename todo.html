@@ -174,10 +174,15 @@
         <div class="item-text"><b>Visitor accounts (sign up / log in) <span class="tag done">Done</span></b>
         <span>Live and deployed: a Postgres schema (Netlify Database/Neon) with <code>users</code>, <code>avatars</code>, and <code>saved_tiles</code> tables; five Netlify Functions (<code>avatar-get</code>, <code>avatar-save</code>, <code>tiles-sync</code>, <code>claim-avatar</code>, <code>avatar-name-check</code>) enforcing globally-unique avatar names; and Netlify Identity wired into the avatar panel (log in/sign up/log out row, plus an optional "bring your existing avatar into this account?" prompt for anyone who already had one on their device). Guests who never log in are completely unaffected — the avatar and favorites board still work exactly as before, purely in localStorage. Real signups, logins, and avatar claims have been tested live on mandeleon.com. Personal boards below build directly on this. The one open issue is tracked separately right below — outbound confirmation emails aren't currently arriving.</span></div>
       </li>
-      <li>
-        <div class="box"></div>
-        <div class="item-text"><b>Fix outbound confirmation emails (Resend SMTP) <span class="tag needs-input">Waiting on Netlify support</span></b>
-        <span>New signups create the account correctly, but the confirmation email itself isn't arriving. Root-caused to the outbound SMTP connection: Resend's domain is fully verified (DKIM/SPF/DMARC all green) and the SMTP host/port/username/password are all confirmed correctly saved in Netlify Identity's settings, tried on both port 465 and 587 — but Resend's own delivery logs show zero incoming connection attempts on any test, which points at something on Netlify's sending side rather than the Resend config. A support ticket is open with Netlify; this needs their response before there's anything more to try from our end.</span></div>
+      <li class="is-done">
+        <div class="box checked">✓</div>
+        <div class="item-text"><b>Fix outbound confirmation emails (Resend SMTP) <span class="tag done">Done</span></b>
+        <span>Resolved by switching Identity's outgoing mail over to Resend's SMTP (smtp.resend.com, port 587). Resend's logs and Emails tab both confirm "Delivered" — a couple of test confirmation emails initially landed in spam rather than not sending at all, which is normal deliverability warm-up for a newer sending domain, not a config problem.</span></div>
+      </li>
+      <li class="is-done">
+        <div class="box checked">✓</div>
+        <div class="item-text"><b>Fix: avatar lost if email is confirmed from a different tab/device <span class="tag done">Done</span></b>
+        <span>Found via testing: a visitor who builds an avatar, signs up, then confirms their email from a different browser tab or device than the one holding that local avatar would land back on a blank "Create Your Avatar" screen — signed in, but with nothing to show for it. Root cause: the avatar only ever lived in that one tab's local storage until confirmation, and the confirming tab/device has no way to see it (this is very easy to hit in Safari Private Browsing specifically, since iOS 17+ gives every new private tab its own isolated storage, and many mail apps open confirmation links in a fresh tab). Fixed with a new <code>pending_avatar_claims</code> table and <code>stash-pending-avatar</code> function: the moment signup succeeds (before confirmation), the local avatar is stashed server-side by email; <code>avatar-get</code> now automatically adopts it on that account's first login, from any tab or device, then clears the stashed copy. <b>One setup step needed:</b> the new table won't create itself — same migration step as before, see the delivery notes.</span></div>
       </li>
       <li>
         <div class="box"></div>

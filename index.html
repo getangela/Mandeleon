@@ -5081,6 +5081,27 @@ if(typeof netlifyIdentity !== 'undefined'){
     handleIdentityUserResolved(user);
   });
   netlifyIdentity.on('logout', () => { handleIdentityUserResolved(null); });
+  // Fires the moment signup succeeds — BEFORE email confirmation, so there's
+  // no JWT yet and the authenticated functions (avatar-save/claim-avatar)
+  // can't be used. If this browser already has a local avatar, stash it
+  // server-side via the public stash-pending-avatar endpoint, keyed by
+  // email, so it survives even if confirmation happens on a different tab
+  // or device (very possible: Safari Private Browsing isolates storage per
+  // tab as of iOS 17+, and many mail apps open confirmation links in a
+  // fresh tab). See the pending_avatar_claims migration + avatar-get.js,
+  // which adopts this automatically on first login. Best-effort only — if
+  // this fails, the visitor just lands back on the normal "create your
+  // avatar" screen after confirming, same as before this existed.
+  netlifyIdentity.on('signup', (user) => {
+    const avatar = getAvatar();
+    if(!avatar || !user || !user.email) return;
+    const savedSlugs = Array.from(saved).map(i => PRODUCTS[i] && PRODUCTS[i].slug).filter(Boolean);
+    fetch('/.netlify/functions/stash-pending-avatar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: user.email, avatar, savedSlugs })
+    }).catch(() => { /* best-effort — see comment above */ });
+  });
   // A confirmation/recovery link that's expired, already used, or points at
   // a deleted account throws here — but the widget's own iframe doesn't
   // reliably close itself afterward (confirmed Sept 9: it's left sitting as
