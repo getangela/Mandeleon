@@ -1053,10 +1053,10 @@
   .modal-content h2{margin:0 0 6px; font-size:22px;}
   .modal-cat{font-size:12px; color:#999; font-weight:700; text-transform:uppercase; letter-spacing:.4px; margin-bottom:14px;}
   .modal-content p.desc{font-size:14.5px; line-height:1.6; color:var(--ink-soft); margin:0 0 18px;}
-  .modal-actions{display:flex; gap:10px; align-items:center; margin-bottom:14px;}
+  .modal-actions{display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:14px;}
   .shop-btn{
     background:var(--red); color:#fff; padding:12px 22px; border-radius:24px; border:none;
-    font-weight:700; font-size:14.5px; flex:1; text-align:center;
+    font-weight:700; font-size:14.5px; flex:1 1 140px; text-align:center;
   }
   .shop-btn:hover{background:var(--red-dark);}
   .copy-link-btn{
@@ -1065,6 +1065,20 @@
   }
   .copy-link-btn:hover{background:#e2e2e2;}
   .copy-link-btn.copied{background:#e6f4ea; color:var(--affiliate);}
+  .share-wrap{position:relative; display:inline-flex;}
+  .share-menu{
+    position:absolute; top:calc(100% + 8px); left:0; background:#fff; border-radius:14px;
+    box-shadow:0 8px 24px rgba(0,0,0,.2); padding:7px; display:none; flex-direction:column;
+    gap:1px; min-width:190px; z-index:5;
+  }
+  .share-menu.open{display:flex;}
+  .share-menu button, .share-menu a{
+    display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:9px; border:none;
+    background:none; color:var(--ink); font-size:13.5px; font-weight:600; text-align:left;
+    width:100%; text-decoration:none; cursor:pointer;
+  }
+  .share-menu button:hover, .share-menu a:hover{background:#f2f2f2;}
+  .share-menu .share-icon{font-size:16px; width:20px; text-align:center; flex-shrink:0;}
   .disclosure{
     font-size:11.5px; color:#999; border-top:1px solid var(--line); padding-top:12px; line-height:1.5;
   }
@@ -2110,6 +2124,15 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
         <div class="modal-actions">
           <a class="shop-btn" id="modalLink" href="#" target="_blank" rel="noopener">Visit Product</a>
           <button class="copy-link-btn" id="modalCopyLink" type="button" title="Copy a direct link to this pin">🔗 Copy Link</button>
+          <div class="share-wrap">
+            <button class="copy-link-btn share-btn" id="modalShareBtn" type="button" title="Share this pin">📤 Share</button>
+            <div class="share-menu" id="modalShareMenu">
+              <a href="#" id="shareFacebook" target="_blank" rel="noopener"><span class="share-icon">📘</span> Facebook</a>
+              <a href="#" id="shareTwitter" target="_blank" rel="noopener"><span class="share-icon">✖️</span> X (Twitter)</a>
+              <a href="#" id="shareEmail"><span class="share-icon">✉️</span> Email</a>
+              <button type="button" id="shareCopyLinkMenuItem"><span class="share-icon">🔗</span> Copy Link</button>
+            </div>
+          </div>
           <button class="copy-link-btn feed-btn" id="modalFeedBtn" type="button" hidden></button>
         </div>
         <p class="exotic-lock-hint" id="modalExoticLockHint" hidden></p>
@@ -4185,6 +4208,7 @@ let currentModalIdx = null;
 function openModal(idx){
   const p = PRODUCTS[idx];
   currentModalIdx = idx;
+  closeShareMenu();
   const isVideo = p.type === 'video';
   const isArticle = p.type === 'article';
   const modalVisual = document.getElementById('modalVisual');
@@ -4261,6 +4285,7 @@ function openModal(idx){
 function closeModal(){
   modalBackdrop.classList.remove('open');
   currentModalIdx = null;
+  closeShareMenu();
   // Stop any playing video by clearing the iframe rather than just hiding it.
   const modalVisual = document.getElementById('modalVisual');
   if(modalVisual.classList.contains('video-embed')){ modalVisual.innerHTML = ''; }
@@ -4363,6 +4388,62 @@ document.getElementById('modalCopyLink').addEventListener('click', async () => {
   btn.textContent = '✓ Copied!';
   btn.classList.add('copied');
   setTimeout(() => { btn.textContent = '🔗 Copy Link'; btn.classList.remove('copied'); }, 1800);
+});
+
+/* ---------- Share (native share sheet on mobile, platform menu on desktop) ---------- */
+function getShareUrlFor(p){
+  return p.slug ? (location.origin + location.pathname + '#p-' + p.slug) : location.href;
+}
+function closeShareMenu(){
+  const menu = document.getElementById('modalShareMenu');
+  if(menu) menu.classList.remove('open');
+}
+document.getElementById('modalShareBtn').addEventListener('click', async (e) => {
+  e.stopPropagation();
+  if(currentModalIdx === null) return;
+  const p = PRODUCTS[currentModalIdx];
+  const shareUrl = getShareUrlFor(p);
+  const shareData = { title: p.name, text: p.desc, url: shareUrl };
+  const canNativeShare = navigator.share && (!navigator.canShare || navigator.canShare(shareData));
+  if(canNativeShare){
+    try{
+      await navigator.share(shareData);
+    } catch(err){
+      // AbortError just means the visitor closed the native share sheet — not an error.
+      if(err && err.name !== 'AbortError'){ console.warn('Share failed:', err); }
+    }
+    return;
+  }
+  // Desktop fallback: a small menu with direct platform share links.
+  const menu = document.getElementById('modalShareMenu');
+  const wasOpen = menu.classList.contains('open');
+  closeShareMenu();
+  if(wasOpen) return; // this click was the toggle-off
+  document.getElementById('shareFacebook').href =
+    'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(shareUrl);
+  document.getElementById('shareTwitter').href =
+    'https://twitter.com/intent/tweet?url=' + encodeURIComponent(shareUrl) + '&text=' + encodeURIComponent(p.name);
+  document.getElementById('shareEmail').href =
+    'mailto:?subject=' + encodeURIComponent(p.name) + '&body=' + encodeURIComponent(p.desc + '\n\n' + shareUrl);
+  menu.classList.add('open');
+});
+document.getElementById('shareCopyLinkMenuItem').addEventListener('click', async () => {
+  if(currentModalIdx === null) return;
+  const shareUrl = getShareUrlFor(PRODUCTS[currentModalIdx]);
+  const btn = document.getElementById('modalCopyLink');
+  try{
+    await navigator.clipboard.writeText(shareUrl);
+    btn.textContent = '✓ Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '🔗 Copy Link'; btn.classList.remove('copied'); }, 1800);
+  } catch(err){
+    console.warn('Clipboard copy failed:', err);
+  }
+  closeShareMenu();
+});
+document.addEventListener('click', (e) => {
+  const wrap = document.querySelector('.share-wrap');
+  if(wrap && !wrap.contains(e.target)){ closeShareMenu(); }
 });
 
 /* =========================================================
