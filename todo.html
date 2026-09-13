@@ -63,7 +63,7 @@
   <header>
     <h1>Mandeleon — Post-Launch To-Do List</h1>
     <p class="subtitle">Everything we've agreed to build or revisit once the site has real hosting.</p>
-    <p class="meta">Last updated: September 10, 2026</p>
+    <p class="meta">Last updated: September 9, 2026</p>
   </header>
 
   <p class="trigger-note">
@@ -111,10 +111,10 @@
         <div class="item-text"><b>Real analytics integration <span class="tag done">Done</span></b>
         <span>Google Analytics (Measurement ID G-GJREMBYVFS) is wired into the site's &lt;head&gt;. Once this is uploaded and live, check Reports &gt; Realtime in your Google Analytics dashboard to confirm visits are coming through.</span></div>
       </li>
-      <li class="is-done">
-        <div class="box checked">✓</div>
-        <div class="item-text"><b>Share options (text, email, social platforms) <span class="tag done">Done</span></b>
-        <span>Live: a new "📤 Share" button sits next to Copy Link on every product, video, and article tile's pop-up. On phones/tablets that support it, tapping Share opens the device's own native share sheet (Messages, Mail, Instagram, WhatsApp, whatever's installed) pre-filled with the tile's name, description, and a direct deep link. On desktop, where there's no native share sheet, it opens a small menu instead with direct links to Facebook, X (Twitter), and Email, plus Copy Link. Verified the button and menu don't overflow the pop-up even on narrow phone widths with every button showing at once (Shop/View/Watch, Copy Link, Share, and Feed).</span></div>
+      <li>
+        <div class="box"></div>
+        <div class="item-text"><b>Share options (text, email, social platforms)</b>
+        <span>Let visitors share any product, video, or article tile via text message, email, or to social platforms (Facebook, X, etc.) — using native share sheets on mobile and/or platform share links on desktop. The Copy Link button already works today, but real sharing only makes sense once tiles have a real public URL to share, so this needs the live domain.</span></div>
       </li>
     </ul>
   </section>
@@ -125,17 +125,17 @@
       <li class="is-done">
         <div class="box checked">✓</div>
         <div class="item-text"><b>Add your real product and affiliate links <span class="tag done">Done</span></b>
-        <span>Checked the live data: 117 of 119 tiles now have real URLs and a set affiliate status (the 8 prescription-strength creams under Topicals/Exotics — Tretinoin, Bimatoprost, Placenta Cream, Estriol Cream — are correctly left without a shoppable link on purpose, same as other Exotics items). <b>Raw Fermented Foods</b> and <b>Exercise</b> are confirmed intentionally link-less, same as other general behavior-recommendation tiles — no action needed.</span></div>
-      </li>
-      <li class="is-done">
-        <div class="box checked">✓</div>
-        <div class="item-text"><b>Add your real YouTube videos <span class="tag done">Done</span></b>
-        <span>Three real videos are live: "Cure for Deafness" and "Scientists Discover Process for Tissue Regeneration" under Cutting Edge, and "Taurine Proves What We Suspected" (Dr. Brad Stanfield) under NAD+, Cardiovascular, and Energy — the same buckets as the Taurine supplement tile. Send more titles/links anytime and I'll keep adding tiles.</span></div>
+        <span>Checked the live data: 117 of 119 tiles now have real URLs and a set affiliate status (the 8 prescription-strength creams under Topicals/Exotics — Tretinoin, Bimatoprost, Placenta Cream, Estriol Cream — are correctly left without a shoppable link on purpose, same as other Exotics items). Two still show "#": <b>Raw Fermented Foods</b> and <b>Exercise</b>, both marked non-affiliate — these read like general behavior recommendations rather than a single product, so they may be intentionally link-less like Diet-category items, but flagging them in case you meant to send a specific product/program link for either.</span></div>
       </li>
       <li>
         <div class="box"></div>
-        <div class="item-text"><b>Add an article tile to Cutting Edge</b>
-        <span>Cutting Edge still has no article tile. Send a real article URL covering experimental anti-aging science/tech and I'll add it.</span></div>
+        <div class="item-text"><b>Add your real YouTube videos</b>
+        <span>Two placeholder video tiles are live now to show how the feature works. Send titles, YouTube links, and which category each fits, and I'll swap them in.</span></div>
+      </li>
+      <li>
+        <div class="box"></div>
+        <div class="item-text"><b>Add your real Cutting Edge content (videos + articles)</b>
+        <span>Cutting Edge currently has two placeholder-style videos and no article tile yet. Send real YouTube links and article URLs covering experimental anti-aging science/tech, and I'll swap them in.</span></div>
       </li>
     </ul>
   </section>
@@ -169,30 +169,20 @@
   <section>
     <h2>User accounts &amp; personal boards</h2>
     <ul>
-      <li class="is-done">
-        <div class="box checked">✓</div>
-        <div class="item-text"><b>Visitor accounts (sign up / log in) <span class="tag done">Done</span></b>
-        <span>Live and deployed: a Postgres schema (Netlify Database/Neon) with <code>users</code>, <code>avatars</code>, and <code>saved_tiles</code> tables; five Netlify Functions (<code>avatar-get</code>, <code>avatar-save</code>, <code>tiles-sync</code>, <code>claim-avatar</code>, <code>avatar-name-check</code>) enforcing globally-unique avatar names; and Netlify Identity wired into the avatar panel (log in/sign up/log out row, plus an optional "bring your existing avatar into this account?" prompt for anyone who already had one on their device). Guests who never log in are completely unaffected — the avatar and favorites board still work exactly as before, purely in localStorage. Real signups, logins, and avatar claims have been tested live on mandeleon.com. Personal boards below build directly on this. The one open issue is tracked separately right below — outbound confirmation emails aren't currently arriving.</span></div>
-      </li>
-      <li class="is-done">
-        <div class="box checked">✓</div>
-        <div class="item-text"><b>Fix outbound confirmation emails (Resend SMTP) <span class="tag done">Done</span></b>
-        <span>Resolved by switching Identity's outgoing mail over to Resend's SMTP (smtp.resend.com, port 587). Resend's logs and Emails tab both confirm "Delivered" — a couple of test confirmation emails initially landed in spam rather than not sending at all, which is normal deliverability warm-up for a newer sending domain, not a config problem.</span></div>
-      </li>
-      <li class="is-done">
-        <div class="box checked">✓</div>
-        <div class="item-text"><b>Fix: avatar lost if email is confirmed from a different tab/device <span class="tag done">Done</span></b>
-        <span>Found via testing: a visitor who builds an avatar, signs up, then confirms their email from a different browser tab or device than the one holding that local avatar would land back on a blank "Create Your Avatar" screen — signed in, but with nothing to show for it. Root cause: the avatar only ever lived in that one tab's local storage until confirmation, and the confirming tab/device has no way to see it (this is very easy to hit in Safari Private Browsing specifically, since iOS 17+ gives every new private tab its own isolated storage, and many mail apps open confirmation links in a fresh tab). Fixed with a new <code>pending_avatar_claims</code> table and <code>stash-pending-avatar</code> function: the moment signup succeeds (before confirmation), the local avatar is stashed server-side by email; <code>avatar-get</code> now automatically adopts it on that account's first login, from any tab or device, then clears the stashed copy. <b>One setup step needed:</b> the new table won't create itself — same migration step as before, see the delivery notes.</span></div>
+      <li>
+        <div class="box"></div>
+        <div class="item-text"><b>Visitor accounts (sign up / log in) <span class="tag needs-input">Code written, needs deploy + setup</span></b>
+        <span>Built: a Postgres schema (Netlify Database/Neon) with <code>users</code>, <code>avatars</code>, and <code>saved_tiles</code> tables; five Netlify Functions (<code>avatar-get</code>, <code>avatar-save</code>, <code>tiles-sync</code>, <code>claim-avatar</code>, <code>avatar-name-check</code>) enforcing globally-unique avatar names; and Netlify Identity wired into the avatar panel (log in/sign up/log out row, plus an optional "bring your existing avatar into this account?" prompt for anyone who already had one on their device — declining starts a clean, account-linked avatar instead). Guests who never log in are completely unaffected — the avatar and favorites board still work exactly as before, purely in localStorage. Verified locally: the SQL migration runs clean, and every login/claim/decline/name-clash code path was tested against a mocked backend with no errors. What's still needed from you before it's actually live: upload the new files (<code>package.json</code>, <code>netlify.toml</code>, <code>.gitignore</code>, and everything under <code>netlify/</code>) alongside the updated <code>index.html</code>, then click <b>Enable Identity</b> once in Netlify's dashboard under Site settings → Identity (that one toggle can't be done for you through the connectors). After that, personal boards below can build on this directly.</span></div>
       </li>
       <li>
         <div class="box"></div>
         <div class="item-text"><b>Custom-built login/signup form (replace Netlify's popup)</b>
         <span>Requested: a "show password" eye icon on the sign-up/login password field. Not possible with the current setup — that field lives inside Netlify Identity's own hosted popup (technically a separate embedded mini-site), and browsers block a site from reaching into and modifying another company's embedded content like that, so no CSS/JS trick from our side can add a button to it. The real fix is building a fully custom sign-up/login form (styled to match the site, with its own password-reveal toggle and any other niceties) that talks to the same Netlify Identity backend directly, instead of relying on Netlify's built-in popup UI. This is a real project — designing and building the form, then wiring it to the existing auth endpoints — not a quick fix, so it's tracked here rather than attempted inline.</span></div>
       </li>
-      <li class="is-done">
-        <div class="box checked">✓</div>
-        <div class="item-text"><b>Personal boards (Pinterest-style) <span class="tag done">Done</span></b>
-        <span>Live: a "📌 Organize into Boards" button appears on the Favorites tab for logged-in visitors, opening a panel where they can create named boards (e.g. "Sleep Stack"), rename or delete them, and add/remove any saved product, video, or article into one or more boards at once — a tile can belong to more than one board, same as Pinterest. An "All Saved" tab always shows everything favorited, with a dropdown on each tile to add it into a board; each named board's own tab shows just its tiles with a one-tap remove. Two new Netlify Functions (<code>boards-list</code>, <code>boards-manage</code>) and two new database tables (<code>boards</code>, <code>board_tiles</code>) back this — account-only, so it's not available to guests browsing without logging in (their plain Favorites list still works as before). <b>One setup step needed:</b> the new tables won't create themselves — see the delivery notes for how to run the migration in Netlify's SQL console.</span></div>
+      <li>
+        <div class="box"></div>
+        <div class="item-text"><b>Personal boards (Pinterest-style)</b>
+        <span>Once logged in, visitors create their own named boards and save any product, video, or article on the site into them — organizing and revisiting their favorites anytime, the same way Pinterest boards work. Builds on top of visitor accounts above.</span></div>
       </li>
     </ul>
   </section>
@@ -205,20 +195,10 @@
         <div class="item-text"><b>Virtual "Mandeleon" avatar system</b>
         <span>A Tamagotchi-style personal avatar visitors name and keep healthy by "feeding" it real product, video, and article tiles from the site. Health meters map to your actual categories (Brain, Sleep &amp; Stress, Energy &amp; Cellular Repair, Heart, Gut &amp; Liver, Immune &amp; Defense, Muscle &amp; Hormones, Skin), decay daily, and are restored by browsing and feeding. Core mechanics (decay rates, feed values, daily caps, discovery and affiliate bonuses) are built and live, along with creation, leveling, vitality tiers, Health/Pool status, biological age, and the adjustable photo crop. Both polish details originally flagged for later are also now done: (1) a subtle green glow around the avatar when most (not all) meters are green — a milder everyday version of the golden Peak glow, which still only fires when every meter is maxed — and (2) a confetti burst alongside the existing "✨ Perfect Feed!" toast for the random bonus-feed moments. The one piece still genuinely outstanding is the <b>global leaderboard</b> comparing everyone's avatar (Cohort Pools, Section 8 of the gamification spec) — that needs the visitor accounts/database work above, since it requires seeing other people's avatars.</span></div>
       </li>
-      <li class="is-done">
-        <div class="box checked">✓</div>
-        <div class="item-text"><b>Create and provide a full ladder of avatar poses <span class="tag done">Done</span></b>
-        <span>Live: 6 distinct hand-drawn poses, one per Health-status tier — Peak (victory pose, every meter at 100), Robust (biceps-flex, every meter 70+), Normal (hands-on-hips, average 50+ — also the starting pose for a freshly created avatar), Weak (arms-at-sides, average 25–49), Fading (slumped/head-down, average below 25), and Coma (kneeling/collapsed — see the Coma trigger &amp; Revival item below, also now done). The uniform itself also still visibly degrades tier over tier (progressive desaturation) on top of each pose's own baked-in wear — the grime-texture overlay originally used for this was replaced with the Vitality Halo below. Cohort Pool was renamed to "Class" at the same time (Elite / Optima / Basic / Grunt) to avoid clashing with Health status's own new "Normal" tier.</span></div>
-      </li>
-      <li class="is-done">
-        <div class="box checked">✓</div>
-        <div class="item-text"><b>Vitality halo (replaces the grime-texture overlay) <span class="tag done">Done</span></b>
-        <span>The uniform's grime/dirt texture from neglect didn't read well, so it's been replaced with a glow that traces the avatar's actual silhouette instead of sitting on the fabric as dirt. Same idea across all 6 Health tiers — it shrinks, cools in color, and slows its pulse as health drops: biggest and brightest gold at Peak, a large green aura at Robust, a medium pale blue-white aura at Normal, a faded burnt-orange outline at Weak (thicker than Fading's, but very see-through, so it doesn't compete with Peak's gold), a thin, soft red glow at Fading, and no halo at all in Coma. Built with layered SVG filters so the glow genuinely hugs whichever pose is showing rather than floating behind it as a plain circle.</span></div>
-      </li>
-      <li class="is-done">
-        <div class="box checked">✓</div>
-        <div class="item-text"><b>Coma trigger &amp; Revival flow <span class="tag done">Done</span></b>
-        <span>Live: per gamification-spec.md Section 4, a 72-real-hour countdown starts the moment the meter average first drops below 25 (Fading) — feeding back above 25 before the countdown finishes cancels it with no penalty, otherwise the avatar enters Coma. Meters stop decaying further once there (no piling-on penalty), and normal feeding is disabled — feeding instead counts toward Revival, which triggers automatically once 4 different meter categories have been fed, waking the avatar at a low ~20-25 baseline per meter (not full health — real effort is still needed afterward, but per the spec nothing is ever lost permanently). The avatar panel shows a dedicated banner with live Revival progress while in Coma, plus a one-time toast the moment the transition is first discovered (whether that's opening the avatar panel or just feeding a tile from the grid). Note: this checks are lazy/client-side, same as the existing daily decay — there's no server-side timer, so the transition is caught the next time the app happens to be open, exactly like decay already works.</span></div>
+      <li>
+        <div class="box"></div>
+        <div class="item-text"><b>Create and provide a full ladder of avatar poses <span class="tag needs-input">Waiting on your art</span></b>
+        <span><b>Confirmed: 5 poses to start</b> — Peak (celebratory/flexing), Thriving, Struggling, Withering, and Coma — more can be added later (e.g. splitting a tier into two, or adding in-between steps) once the base ladder is live. Trigger logic already exists for the first four and needs no further decisions: Peak needs every single one of the 8 health meters (Sleep &amp; Stress, Energy &amp; Cellular Repair, Brain, Gut &amp; Liver, Heart, Immune &amp; Defense, Muscle &amp; Hormones, Skin) individually maxed at 100 — not just a high average, so one neglected category still holds it back; Thriving/Struggling/Withering key off the average of all 8 meters (≥50 / 25–49 / &lt;25). Coma is a planned-but-not-yet-built state (72-hour no-feed countdown reaching zero, per the gamification spec) — its trigger will need to be wired up alongside its pose. You're providing the artwork whenever it's ready — no rush. For each pose to drop in cleanly next to the current single illustration, it should be: (1) same character, clothing, and art style as the existing avatar (so switching poses doesn't look like a different character), (2) a transparent-background PNG like the current one, (3) roughly the same canvas proportions as the current art (616×536) so the existing head-photo-overlay positioning still lines up without recalculating, and (4) named or labeled by tier (peak / thriving / struggling / withering / coma) so they're easy to wire in. Once poses arrive, the code also needs a small restructure — swapping in a different image per tier instead of one image + CSS filters/rotate — which I'll handle on my end.</span></div>
       </li>
       <li>
         <div class="box"></div>
