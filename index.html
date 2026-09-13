@@ -4924,8 +4924,13 @@ async function handleIdentityUserResolved(user){
     return;
   }
   try{
+    // TEMPORARY DIAGNOSTIC (Sept 13) — see the matching comment on the
+    // 'signup' handler. This confirms whether avatar-get ran at all on
+    // this login and what it found, without needing dev tools.
+    showFeedToast('🔔 DEBUG: checking account for a saved/pending avatar...');
     const res = await authFetch('/.netlify/functions/avatar-get');
     const body = await res.json().catch(() => ({}));
+    showFeedToast(`🔔 DEBUG: avatar-get ${res.status} → avatar:${!!(body && body.avatar)}`);
     if(body && body.avatar){
       // This account already has an avatar from another device/session —
       // adopt it here as the source of truth for this browser too.
@@ -4944,6 +4949,7 @@ async function handleIdentityUserResolved(user){
       claimPending = false;
     }
   } catch(e){
+    showFeedToast('🔔 DEBUG: avatar-get request threw an error');
     // Couldn't reach the server to check — leave state as-is; the next
     // successful check (next login, or next avatar-panel open) resolves it.
   }
@@ -5358,6 +5364,14 @@ if(typeof netlifyIdentity !== 'undefined'){
   // this fails, the visitor just lands back on the normal "create your
   // avatar" screen after confirming, same as before this existed.
   netlifyIdentity.on('signup', (user) => {
+    // TEMPORARY DIAGNOSTIC (Sept 13) — the cross-device avatar handoff has
+    // failed twice in a row with zero trace anywhere on the server (no DB
+    // row, no function invocation logged at all), which points at this
+    // event simply never firing the way the code below assumes, rather than
+    // a network/timing problem. This toast is the cheapest way to prove
+    // whether that's true without needing dev tools open. Remove once
+    // confirmed one way or the other.
+    showFeedToast('🔔 DEBUG: signup event fired');
     // Independent of whether there's a local avatar to stash — this just
     // acknowledges "you signed up, go check your email" on the account row
     // instead of it reverting to the generic Sign Up/Log In prompt right
@@ -5368,7 +5382,10 @@ if(typeof netlifyIdentity !== 'undefined'){
       renderAccountRow();
     }
     const avatar = getAvatar();
-    if(!avatar || !user || !user.email) return;
+    if(!avatar || !user || !user.email){
+      showFeedToast(`🔔 DEBUG: skipped backup (avatar:${!!avatar} email:${!!(user && user.email)})`);
+      return;
+    }
     const savedSlugs = Array.from(saved).map(i => PRODUCTS[i] && PRODUCTS[i].slug).filter(Boolean);
     const payload = JSON.stringify({ email: user.email, avatar, savedSlugs });
     // The cross-device handoff (avatar created + signed up in one browser,
@@ -5391,18 +5408,23 @@ if(typeof netlifyIdentity !== 'undefined'){
         );
       } catch(e){ queued = false; }
     }
+    // TEMPORARY DIAGNOSTIC (Sept 13) — see comment above.
+    showFeedToast(`🔔 DEBUG: sendBeacon ${navigator.sendBeacon ? (queued ? 'queued OK' : 'returned false') : 'unavailable'}`);
     if(queued) return;
+    showFeedToast('🔔 DEBUG: falling back to fetch+keepalive');
     fetch('/.netlify/functions/stash-pending-avatar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: payload,
       keepalive: true
     }).then((res) => {
+      showFeedToast(`🔔 DEBUG: fetch fallback responded ${res.status}`);
       if(!res.ok){
         console.error('stash-pending-avatar failed', res.status);
         showFeedToast("Couldn't back up your avatar for another device — if it's missing after you confirm your email, come back here and sign in to restore it.");
       }
     }).catch(() => {
+      showFeedToast('🔔 DEBUG: fetch fallback threw a network error');
       console.error('stash-pending-avatar: network error');
       showFeedToast("Couldn't back up your avatar for another device — if it's missing after you confirm your email, come back here and sign in to restore it.");
     });
