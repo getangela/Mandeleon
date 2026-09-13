@@ -29,3 +29,32 @@
   to = "https://mandeleon.com/:splat"
   status = 301
   force = true
+
+# Without this, browsers are free to reuse a locally cached copy of the main
+# pages indefinitely instead of checking for a new deploy — which is exactly
+# what's caused several rounds of "the fix isn't showing up" confusion
+# (Safari/Brave both serving an old version of index.html for a while after
+# a new one was uploaded, even minutes/hours later, with nothing visibly
+# "wrong" to explain why). This doesn't stop caching altogether (that would
+# mean re-downloading the ~12MB page on every single visit, which real
+# visitors shouldn't have to pay for) — it uses Cache-Control: no-cache,
+# which tells the browser "check back with the server before using your
+# cached copy." If nothing's changed, Netlify's CDN answers with a cheap
+# "304 Not Modified" and the browser uses what it already has; if a new
+# version was deployed, it downloads the new one immediately instead of
+# silently continuing to show the old one. Applies to both the root path
+# and index.html explicitly since either can be how a browser requests it.
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/todo.html"
+  [headers.values]
+    Cache-Control = "no-cache"
