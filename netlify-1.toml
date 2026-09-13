@@ -1,0 +1,60 @@
+# Mandeleon deploys the same way it always has — index.html and the other
+# static files at the repo root, published as-is. This file only adds the
+# serverless-functions piece for Visitor Accounts; it does not turn the site
+# into a build project. Netlify will still run `npm install` automatically
+# (because package.json exists) so the functions below have @netlify/database
+# available, but no build command runs against index.html itself.
+
+[build]
+  publish = "."
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# Force a single canonical address for the whole site. Without this, a
+# visitor can land on www.mandeleon.com for one visit and plain
+# mandeleon.com for another (both serve the same Netlify site, so nothing
+# looks "broken" — the page loads fine either way). The problem is that
+# the avatar (photo, name, everything) lives in the browser's localStorage,
+# which is scoped per-address: www.mandeleon.com and mandeleon.com don't
+# share it, so an avatar created on one silently doesn't exist on the
+# other. Netlify Identity's confirmation/recovery/invite links always land
+# on mandeleon.com (the site's configured primary domain), so that has to
+# be the one and only address real visitors ever end up using — this
+# redirect makes sure of it before any page content (or its localStorage)
+# is ever touched.
+[[redirects]]
+  from = "https://www.mandeleon.com/*"
+  to = "https://mandeleon.com/:splat"
+  status = 301
+  force = true
+
+# Without this, browsers are free to reuse a locally cached copy of the main
+# pages indefinitely instead of checking for a new deploy — which is exactly
+# what's caused several rounds of "the fix isn't showing up" confusion
+# (Safari/Brave both serving an old version of index.html for a while after
+# a new one was uploaded, even minutes/hours later, with nothing visibly
+# "wrong" to explain why). This doesn't stop caching altogether (that would
+# mean re-downloading the ~12MB page on every single visit, which real
+# visitors shouldn't have to pay for) — it uses Cache-Control: no-cache,
+# which tells the browser "check back with the server before using your
+# cached copy." If nothing's changed, Netlify's CDN answers with a cheap
+# "304 Not Modified" and the browser uses what it already has; if a new
+# version was deployed, it downloads the new one immediately instead of
+# silently continuing to show the old one. Applies to both the root path
+# and index.html explicitly since either can be how a browser requests it.
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/todo.html"
+  [headers.values]
+    Cache-Control = "no-cache"
