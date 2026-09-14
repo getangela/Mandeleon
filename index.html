@@ -2121,6 +2121,17 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
       <div class="modal-content" style="text-align:center;">
         <h2 id="saveAvatarPromptTitle">🐣 Save Your Avatar</h2>
         <p class="desc">Sign up to save this avatar to an account so it's never lost — you'll get a quick email to confirm.</p>
+        <!-- Asking for the email here (before Netlify's own Sign Up form ever
+             opens) is what makes the cross-device handoff actually reliable —
+             see the long comment on stashAvatarForEmail() in the script for
+             why this replaced relying on any signal from that widget. Yes,
+             the visitor types their email twice (here, then again in
+             Netlify's form) — a small redundancy traded for something that
+             just works every time instead of sometimes silently not. -->
+        <form class="gate-form" id="saveAvatarPromptForm" style="text-align:left;">
+          <input type="email" id="saveAvatarPromptEmail" name="email" placeholder="you@email.com" required autocomplete="email">
+          <p class="gate-error" id="saveAvatarPromptEmailError">Please enter a valid email address.</p>
+        </form>
         <div class="boards-logged-out-actions">
           <button type="button" class="shop-btn" id="saveAvatarPromptSignUpBtn">Sign Up</button>
           <button type="button" class="boards-login-link" id="saveAvatarPromptLoginBtn">Log In</button>
@@ -4820,7 +4831,7 @@ function renderAccountRow(){
     retryBtn.addEventListener('click', () => {
       clearPendingConfirmEmail();
       renderAccountRow();
-      netlifyIdentity.open('signup');
+      openSaveAvatarPrompt();
     });
     el.append('📬 Confirmation email sent to ', emailSpan, ' — check your inbox. Already confirmed? ', loginBtn, ' · ', retryBtn);
   } else {
@@ -4837,7 +4848,11 @@ function renderAccountRow(){
     signUpBtn.type = 'button';
     signUpBtn.className = 'account-link-btn';
     signUpBtn.textContent = 'Sign Up';
-    signUpBtn.addEventListener('click', () => netlifyIdentity.open('signup'));
+    // Routes through the same "Save Your Avatar" modal as the post-creation
+    // prompt (rather than opening Netlify's Sign Up form directly) so the
+    // email gets captured and stashed reliably first — see
+    // stashAvatarForEmail() and the comment on setupSaveAvatarPromptModal().
+    signUpBtn.addEventListener('click', () => openSaveAvatarPrompt());
     const loginBtn = document.createElement('button');
     loginBtn.type = 'button';
     loginBtn.className = 'account-link-btn';
@@ -4999,7 +5014,12 @@ function closeBoardsPanel(){
 document.getElementById('openBoardsBtn').addEventListener('click', openBoardsPanel);
 document.getElementById('boardsClose').addEventListener('click', closeBoardsPanel);
 boardsBackdrop.addEventListener('click', (e) => { if(e.target === boardsBackdrop) closeBoardsPanel(); });
-document.getElementById('boardsSignUpBtn').addEventListener('click', () => netlifyIdentity.open('signup'));
+// Routes through the "Save Your Avatar" prompt (see openSaveAvatarPrompt()
+// below) rather than opening Netlify's Sign Up form directly, same reason
+// as every other Sign Up entry point in the app: capturing the email
+// ourselves first is what makes the cross-device avatar handoff reliable —
+// see stashAvatarForEmail() and the comment on setupSaveAvatarPromptModal().
+document.getElementById('boardsSignUpBtn').addEventListener('click', () => { closeBoardsPanel(); openSaveAvatarPrompt(); });
 document.getElementById('boardsLoginBtn').addEventListener('click', () => netlifyIdentity.open('login'));
 
 // See the comment on #authErrorBackdrop above — this modal replaces the old
@@ -5010,7 +5030,9 @@ document.getElementById('boardsLoginBtn').addEventListener('click', () => netlif
   const close = () => backdrop.classList.remove('open');
   document.getElementById('authErrorClose').addEventListener('click', close);
   backdrop.addEventListener('click', (e) => { if(e.target === backdrop) close(); });
-  document.getElementById('authErrorSignUpBtn').addEventListener('click', () => { close(); netlifyIdentity.open('signup'); });
+  // Same routing as every other Sign Up entry point — see the comment on
+  // boardsSignUpBtn above and on setupSaveAvatarPromptModal below.
+  document.getElementById('authErrorSignUpBtn').addEventListener('click', () => { close(); openSaveAvatarPrompt(); });
   document.getElementById('authErrorLoginBtn').addEventListener('click', () => { close(); netlifyIdentity.open('login'); });
 })();
 
@@ -5022,14 +5044,43 @@ document.getElementById('boardsLoginBtn').addEventListener('click', () => netlif
 // banner in the avatar panel remains as a standing option after this.
 function openSaveAvatarPrompt(){
   if(currentIdentityUser) return; // already signed in — nothing to prompt
+  // Reset the email field/error every time this opens, not just on first
+  // load — it can be reopened later (e.g. "Use a different email" on the
+  // pending-confirmation banner) without a page refresh in between, and a
+  // leftover value or error from a previous visit would be confusing.
+  const emailInput = document.getElementById('saveAvatarPromptEmail');
+  if(emailInput) emailInput.value = '';
+  const emailError = document.getElementById('saveAvatarPromptEmailError');
+  if(emailError) emailError.style.display = 'none';
   document.getElementById('saveAvatarPromptBackdrop').classList.add('open');
 }
+const SAVE_AVATAR_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 (function setupSaveAvatarPromptModal(){
   const backdrop = document.getElementById('saveAvatarPromptBackdrop');
+  const emailInput = document.getElementById('saveAvatarPromptEmail');
+  const emailError = document.getElementById('saveAvatarPromptEmailError');
   const close = () => backdrop.classList.remove('open');
   document.getElementById('saveAvatarPromptClose').addEventListener('click', close);
   backdrop.addEventListener('click', (e) => { if(e.target === backdrop) close(); });
-  document.getElementById('saveAvatarPromptSignUpBtn').addEventListener('click', () => { close(); netlifyIdentity.open('signup'); });
+  // Collecting the email here (before Netlify's Sign Up form ever opens) is
+  // what makes the cross-device handoff reliable — see stashAvatarForEmail()
+  // below. Confirmed via real testing (Sept 13-14) that neither the
+  // widget's own 'signup' event nor polling its currentUser() could be
+  // trusted to fire at the right moment; this sidesteps the widget
+  // entirely for that signal, using a plain request tied directly to this
+  // click instead.
+  document.getElementById('saveAvatarPromptSignUpBtn').addEventListener('click', () => {
+    const email = emailInput.value.trim();
+    if(!SAVE_AVATAR_EMAIL_RE.test(email)){
+      emailError.style.display = 'block';
+      emailInput.focus();
+      return;
+    }
+    emailError.style.display = 'none';
+    stashAvatarForEmail(email);
+    close();
+    netlifyIdentity.open('signup');
+  });
   document.getElementById('saveAvatarPromptLoginBtn').addEventListener('click', () => { close(); netlifyIdentity.open('login'); });
 })();
 
@@ -5332,6 +5383,101 @@ function renderBoardsTileGrid(){
   });
 }
 
+// Shared by both detection paths below (the 'signup' event, which real
+// testing shows never actually fires for this site's normal sign-up flow,
+// and beginSignupWatch()'s polling, which does). Acknowledges the sign-up
+// on the account row and — if this device already has a local avatar —
+// stashes it server-side so it survives confirming from a different
+// device (see the pending_avatar_claims migration + avatar-get.js).
+function handleSignupDetected(user){
+  if(user && user.email){
+    setPendingConfirmEmail(user.email);
+    renderAccountRow();
+  }
+  const avatar = getAvatar();
+  if(!avatar || !user || !user.email) return;
+  const savedSlugs = Array.from(saved).map(i => PRODUCTS[i] && PRODUCTS[i].slug).filter(Boolean);
+  const payload = JSON.stringify({ email: user.email, avatar, savedSlugs });
+  // sendBeacon first (more reliably honored than fetch's keepalive flag
+  // when a visitor is about to switch away to check their inbox), fetch as
+  // the fallback for browsers without it or if queuing it fails.
+  let queued = false;
+  if(navigator.sendBeacon){
+    try{
+      queued = navigator.sendBeacon(
+        '/.netlify/functions/stash-pending-avatar',
+        new Blob([payload], { type: 'application/json' })
+      );
+    } catch(e){ queued = false; }
+  }
+  if(queued) return;
+  fetch('/.netlify/functions/stash-pending-avatar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: payload,
+    keepalive: true
+  }).then((res) => {
+    if(!res.ok){
+      console.error('stash-pending-avatar failed', res.status);
+      showFeedToast("Couldn't back up your avatar for another device — if it's missing after you confirm your email, come back here and sign in to restore it.");
+    }
+  }).catch(() => {
+    console.error('stash-pending-avatar: network error');
+    showFeedToast("Couldn't back up your avatar for another device — if it's missing after you confirm your email, come back here and sign in to restore it.");
+  });
+}
+
+// Called directly from the "Save Your Avatar" modal's Sign Up button (see
+// setupSaveAvatarPromptModal above), BEFORE netlifyIdentity.open('signup')
+// ever runs. This is the actual fix for the cross-device handoff: real
+// testing (Sept 13-14, three separate live attempts) showed neither the
+// widget's own 'signup' event nor polling currentUser() could be trusted to
+// fire at the right moment, so this sidesteps the widget's signals
+// entirely — it fires on a plain, synchronous click with nothing else
+// happening in between, so there's no timing window for it to miss. Reuses
+// handleSignupDetected's stash/banner logic (a {email}-shaped object is all
+// that function actually needs) so this stays in sync with the other two
+// (now-fallback) detection paths.
+function stashAvatarForEmail(email){
+  handleSignupDetected({ email: email });
+}
+
+// TEMPORARY DIAGNOSTIC (Sept 14) — real testing (three separate live
+// attempts) confirmed netlify-identity-widget's own 'signup' event never
+// fires for this site's normal "fill out the Sign Up tab, tap Sign up"
+// flow: zero DB row, zero function invocation logged, zero on-screen debug
+// toast, every single time. Rather than depend on an event that doesn't
+// fire, this polls the documented, public netlifyIdentity.currentUser()
+// after the visitor opens the sign-up form — if GoTrue hands back a user
+// session at all once the account is created (even pre-confirmation),
+// this catches it without depending on internal widget event wiring we
+// can't observe. Started from every button that opens the sign-up tab.
+// Stops itself after ~2 minutes so it can't run forever if the visitor
+// closes the widget without finishing.
+let signupWatchTimer = null;
+let signupWatchSeenUserId = null;
+function beginSignupWatch(){
+  if(signupWatchTimer) return; // already watching
+  showFeedToast('🔔 DEBUG: watching for signup completion...');
+  let attempts = 0;
+  signupWatchTimer = setInterval(() => {
+    attempts++;
+    let user = null;
+    try{ user = netlifyIdentity.currentUser(); } catch(e){}
+    if(user && user.email && user.id !== signupWatchSeenUserId){
+      signupWatchSeenUserId = user.id;
+      clearInterval(signupWatchTimer);
+      signupWatchTimer = null;
+      showFeedToast(`🔔 DEBUG: currentUser() appeared (${user.email})`);
+      handleSignupDetected(user);
+    } else if(attempts >= 240){
+      clearInterval(signupWatchTimer);
+      signupWatchTimer = null;
+      showFeedToast('🔔 DEBUG: signup watch timed out, no currentUser() seen');
+    }
+  }, 500);
+}
+
 // See the comment on #authGateBackdrop above. If the page loaded with a
 // one-time Identity token in the hash, pull it out and hold onto it before
 // netlifyIdentity ever gets a chance to auto-process it — then only put it
@@ -5364,70 +5510,14 @@ if(typeof netlifyIdentity !== 'undefined'){
   // this fails, the visitor just lands back on the normal "create your
   // avatar" screen after confirming, same as before this existed.
   netlifyIdentity.on('signup', (user) => {
-    // TEMPORARY DIAGNOSTIC (Sept 13) — the cross-device avatar handoff has
-    // failed twice in a row with zero trace anywhere on the server (no DB
-    // row, no function invocation logged at all), which points at this
-    // event simply never firing the way the code below assumes, rather than
-    // a network/timing problem. This toast is the cheapest way to prove
-    // whether that's true without needing dev tools open. Remove once
-    // confirmed one way or the other.
-    showFeedToast('🔔 DEBUG: signup event fired');
-    // Independent of whether there's a local avatar to stash — this just
-    // acknowledges "you signed up, go check your email" on the account row
-    // instead of it reverting to the generic Sign Up/Log In prompt right
-    // after the visitor was just told a confirmation email is on its way
-    // (confirmed confusing — real feedback, Sept 13).
-    if(user && user.email){
-      setPendingConfirmEmail(user.email);
-      renderAccountRow();
-    }
-    const avatar = getAvatar();
-    if(!avatar || !user || !user.email){
-      showFeedToast(`🔔 DEBUG: skipped backup (avatar:${!!avatar} email:${!!(user && user.email)})`);
-      return;
-    }
-    const savedSlugs = Array.from(saved).map(i => PRODUCTS[i] && PRODUCTS[i].slug).filter(Boolean);
-    const payload = JSON.stringify({ email: user.email, avatar, savedSlugs });
-    // The cross-device handoff (avatar created + signed up in one browser,
-    // confirmation email opened in another) has been confirmed to still
-    // drop the avatar even with fetch's keepalive:true (real report, Sept
-    // 13, Safari -> Brave) — right after signing up, the visitor switches to
-    // a Mail app, and iOS/mobile Safari in particular doesn't reliably honor
-    // keepalive once the tab is backgrounded. navigator.sendBeacon is the
-    // browser-native API purpose-built for exactly this "send this now, the
-    // page is about to go away" moment and is honored far more consistently
-    // by Safari for it, so it's tried first; fetch+keepalive remains the
-    // fallback for browsers without sendBeacon (or if queuing it fails,
-    // e.g. a payload over the beacon size quota).
-    let queued = false;
-    if(navigator.sendBeacon){
-      try{
-        queued = navigator.sendBeacon(
-          '/.netlify/functions/stash-pending-avatar',
-          new Blob([payload], { type: 'application/json' })
-        );
-      } catch(e){ queued = false; }
-    }
-    // TEMPORARY DIAGNOSTIC (Sept 13) — see comment above.
-    showFeedToast(`🔔 DEBUG: sendBeacon ${navigator.sendBeacon ? (queued ? 'queued OK' : 'returned false') : 'unavailable'}`);
-    if(queued) return;
-    showFeedToast('🔔 DEBUG: falling back to fetch+keepalive');
-    fetch('/.netlify/functions/stash-pending-avatar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: payload,
-      keepalive: true
-    }).then((res) => {
-      showFeedToast(`🔔 DEBUG: fetch fallback responded ${res.status}`);
-      if(!res.ok){
-        console.error('stash-pending-avatar failed', res.status);
-        showFeedToast("Couldn't back up your avatar for another device — if it's missing after you confirm your email, come back here and sign in to restore it.");
-      }
-    }).catch(() => {
-      showFeedToast('🔔 DEBUG: fetch fallback threw a network error');
-      console.error('stash-pending-avatar: network error');
-      showFeedToast("Couldn't back up your avatar for another device — if it's missing after you confirm your email, come back here and sign in to restore it.");
-    });
+    // Kept as a listener in case some code path in the widget genuinely
+    // does emit this — but confirmed via real testing (Sept 13-14, three
+    // separate live attempts, zero DB row / zero function log / zero
+    // on-screen debug toast every time) that this event never fires for
+    // the normal "fill out the Sign Up tab, tap Sign up" flow on this site.
+    // handleSignupDetected() is the shared logic; see beginSignupWatch()
+    // below for the mechanism that actually catches this in practice now.
+    handleSignupDetected(user);
   });
   // A confirmation/recovery link that's expired, already used, or points at
   // a deleted account throws here — but the widget's own iframe doesn't
