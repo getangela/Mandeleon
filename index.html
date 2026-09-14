@@ -1435,6 +1435,17 @@
   .avatar-account-row.pending{
     font-size:14px; color:var(--ink); background:#f2f9f3; border:1px solid #bfe3c4;
     border-radius:12px; padding:10px 14px; margin:0 0 16px; border-bottom:1px solid #bfe3c4;
+    /* Three distinct lines (confirmation notice, log-in option, "wrong
+       email" recovery option) read as one run-on sentence when they're just
+       wrapped inline text — stacking them removes the ambiguity about what
+       each part means and when it applies. */
+    flex-direction:column; gap:4px;
+  }
+  .avatar-account-row.pending .account-row-line{
+    display:flex; align-items:center; justify-content:center; gap:6px; flex-wrap:wrap;
+  }
+  .avatar-account-row.pending .account-row-line.secondary{
+    font-size:12.5px; color:var(--ink-soft);
   }
   .avatar-account-row .account-link-btn{
     background:none; border:none; padding:0; font:inherit; font-weight:700;
@@ -4827,13 +4838,29 @@ function renderAccountRow(){
     const retryBtn = document.createElement('button');
     retryBtn.type = 'button';
     retryBtn.className = 'account-link-btn';
-    retryBtn.textContent = 'Use a different email';
+    retryBtn.textContent = 'Use different email';
     retryBtn.addEventListener('click', () => {
       clearPendingConfirmEmail();
       renderAccountRow();
       openSaveAvatarPrompt();
     });
-    el.append('📬 Confirmation email sent to ', emailSpan, ' — check your inbox. Already confirmed? ', loginBtn, ' · ', retryBtn);
+    // Three separate lines rather than one run-on sentence: (1) what just
+    // happened, (2) what to do if you'd already confirmed elsewhere, (3)
+    // what to do if this email itself was the problem (typo, or the
+    // confirmation just isn't showing up). Keeping these visually distinct
+    // is what makes "Use a different email" legible — folded into the same
+    // line as the confirmation notice, real feedback (Sept 14) showed
+    // people couldn't tell what situation it was for.
+    const line1 = document.createElement('div');
+    line1.className = 'account-row-line';
+    line1.append('📬 Confirmation email sent to ', emailSpan);
+    const line2 = document.createElement('div');
+    line2.className = 'account-row-line secondary';
+    line2.append('Already confirmed? ', loginBtn);
+    const line3 = document.createElement('div');
+    line3.className = 'account-row-line secondary';
+    line3.append('Wrong email/No confirmation? ', retryBtn);
+    el.append(line1, line2, line3);
   } else {
     // Always offer both — there's no reliable way to tell from this device
     // alone whether this visitor already has an account elsewhere (e.g. they
