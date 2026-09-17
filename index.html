@@ -1475,6 +1475,15 @@
   .avatar-claim-banner .claim-yes:hover{ background:var(--red-dark); }
   .avatar-claim-banner .claim-no{ background:#efefef; color:var(--ink); }
   .avatar-claim-banner .claim-no:hover{ background:#e2e2e2; }
+  .avatar-claim-banner .avatar-rename-form{
+    display:flex; gap:8px; width:100%; max-width:280px;
+  }
+  .avatar-claim-banner .avatar-rename-form input{
+    flex:1; min-width:0; padding:9px 12px; border:1px solid var(--line); border-radius:8px;
+    font-size:14px; font-family:inherit; outline:none; box-sizing:border-box;
+  }
+  .avatar-claim-banner .avatar-rename-form input:focus{ border-color:var(--ink); }
+  .avatar-claim-banner .avatar-rename-form .claim-yes{ flex:none; }
 
   /* ---------- Personal Boards (Pinterest-style) ----------
      See todo.html "User accounts & personal boards" / renderBoardsPanel()
@@ -2290,6 +2299,21 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
             <button type="button" class="claim-yes" id="claimYesBtn">Yes, use this one</button>
             <button type="button" class="claim-no" id="claimNoBtn">No, start fresh</button>
           </div>
+        </div>
+        <!-- Shown when the avatar stashed during signup (see
+             stashAvatarForEmail() and pending_avatar_claims) couldn't be
+             auto-attached to this account because its name is already
+             taken by a different account. Lets the visitor rescue it right
+             here — renaming and retrying — without needing to go back to
+             whichever device originally created it. See
+             setupAvatarRenameBanner() in the script. -->
+        <div class="avatar-claim-banner" id="avatarRenameBanner" hidden>
+          <span>The avatar from your signup ("<b id="avatarRenameOldName"></b>") is already taken by another account. Choose a different name to save it here:</span>
+          <form id="avatarRenameForm" class="avatar-rename-form">
+            <input type="text" id="avatarRenameInput" placeholder="New avatar name" maxlength="30" required autocomplete="off">
+            <button type="submit" class="claim-yes">Save</button>
+          </form>
+          <span class="gate-error" id="avatarRenameError" style="display:none;"></span>
         </div>
         <div id="avatarSetup" class="avatar-setup">
           <div class="avatar-setup-icon" id="avatarSetupIcon">🐣</div>
@@ -4691,6 +4715,15 @@ let currentIdentityUser = null;
 // unconfirmed local avatar (the user asked for this to be an optional
 // prompt, not automatic).
 let claimPending = false;
+// True only while the "your avatar's name is taken, choose a new one"
+// rescue banner is up and unresolved (see adoptPendingClaim() in
+// avatar-get.js and setupAvatarRenameBanner() below). Deliberately left
+// unmarked/unlinked while this is true — isAvatarLinked() gates whether
+// avatar-get even runs again on the next login or page load, and this
+// state is the opposite of resolved, so it needs that check to keep
+// re-running until the visitor actually rescues the avatar or gives up.
+let renamePending = false;
+let renamePendingOldName = '';
 
 function isAvatarLinked(){
   return !!(currentIdentityUser && localStorage.getItem(AVATAR_LINKED_KEY) === currentIdentityUser.sub);
@@ -4897,6 +4930,66 @@ function refreshClaimBanner(){
   const banner = document.getElementById('avatarClaimBanner');
   if(banner) banner.hidden = !claimPending;
 }
+function refreshRenameBanner(){
+  const banner = document.getElementById('avatarRenameBanner');
+  if(!banner) return;
+  banner.hidden = !renamePending;
+  if(renamePending){
+    const nameEl = document.getElementById('avatarRenameOldName');
+    if(nameEl) nameEl.textContent = renamePendingOldName;
+    const input = document.getElementById('avatarRenameInput');
+    // Pre-fill with the original name so the visitor is editing rather than
+    // starting from a blank field — the goal is a quick tweak (add a
+    // number, a variant spelling), not retyping the whole thing.
+    if(input && !input.value) input.value = renamePendingOldName;
+    const err = document.getElementById('avatarRenameError');
+    if(err) err.style.display = 'none';
+  }
+}
+(function setupAvatarRenameBanner(){
+  const form = document.getElementById('avatarRenameForm');
+  if(!form) return;
+  const input = document.getElementById('avatarRenameInput');
+  const err = document.getElementById('avatarRenameError');
+  const submitBtn = form.querySelector('button[type="submit"]');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const newName = input.value.trim();
+    if(!newName){ return; }
+    err.style.display = 'none';
+    submitBtn.disabled = true;
+    const originalLabel = submitBtn.textContent;
+    submitBtn.textContent = 'Saving…';
+    try{
+      const res = await authFetch('/.netlify/functions/claim-pending-avatar', {
+        method: 'POST', body: JSON.stringify({ name: newName })
+      });
+      const body = await res.json().catch(() => ({}));
+      if(res.ok && body.avatar){
+        renamePending = false;
+        renamePendingOldName = '';
+        markAvatarLinked();
+        saveAvatar(body.avatar);
+        refreshRenameBanner();
+        renderAvatarStrip();
+        renderAccountRow();
+        showFeedToast(`✅ Saved as "${body.avatar.name}"!`);
+      } else {
+        // Most likely another 409 (the new name's taken too) — leave the
+        // banner up so they can just try again with a different name,
+        // same "keep trying" pattern as the existing claim-avatar flow.
+        err.textContent = body.error || 'Could not save that name — try another.';
+        err.style.display = 'block';
+      }
+    } catch(e){
+      err.textContent = 'Could not reach the server — try again in a moment.';
+      err.style.display = 'block';
+    } finally{
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalLabel;
+    }
+  });
+})();
 
 const claimYesBtn = document.getElementById('claimYesBtn');
 if(claimYesBtn) claimYesBtn.addEventListener('click', async () => {
@@ -4957,12 +5050,16 @@ async function handleIdentityUserResolved(user){
   renderAccountRow();
   if(!user){
     claimPending = false;
+    renamePending = false;
     refreshClaimBanner();
+    refreshRenameBanner();
     return;
   }
   if(isAvatarLinked()){
     claimPending = false;
+    renamePending = false;
     refreshClaimBanner();
+    refreshRenameBanner();
     return;
   }
   try{
@@ -4979,15 +5076,33 @@ async function handleIdentityUserResolved(user){
       markAvatarLinked();
       saveAvatar(body.avatar);
       claimPending = false;
+      renamePending = false;
       renderAvatarStrip();
       if(avatarBackdrop.classList.contains('open')) openAvatarPanel();
+    } else if(body && body.claimBlocked === 'name_taken'){
+      // The avatar stashed for this email during signup couldn't be
+      // adopted because its name is already taken by a different account
+      // (see adoptPendingClaim() in avatar-get.js) — real testing (Sept 17)
+      // showed this fails completely silently otherwise, which looks
+      // indistinguishable from the whole feature being broken. Surface it
+      // so there's at least something actionable instead of nothing, and
+      // put up the rescue banner (see setupAvatarRenameBanner()) so there's
+      // actually something to DO about it — deliberately NOT marking this
+      // linked, since nothing's resolved yet; that keeps this same check
+      // running on the next login/page load until the visitor rescues it.
+      showFeedToast('That avatar name already exists. Please choose a different one.');
+      renamePending = true;
+      renamePendingOldName = body.blockedName || '';
+      claimPending = false;
     } else if(getAvatar()){
       // No account avatar yet, but this device already has one locally —
       // ask before uploading it, per the optional-prompt design.
+      renamePending = false;
       claimPending = true;
     } else {
       // Nothing local and nothing on the account yet — nothing to ask.
       markAvatarLinked();
+      renamePending = false;
       claimPending = false;
     }
   } catch(e){
@@ -4996,6 +5111,7 @@ async function handleIdentityUserResolved(user){
     // successful check (next login, or next avatar-panel open) resolves it.
   }
   refreshClaimBanner();
+  refreshRenameBanner();
 }
 
 /* =========================================================
