@@ -1131,6 +1131,14 @@
   .gate-error{display:none; color:var(--red); font-size:12.5px; margin:-4px 0 10px; text-align:left;}
   .gate-privacy{font-size:11.5px; color:#999; margin-top:12px;}
 
+  /* Live "is this avatar name available?" hint under #avatarNameInput — see
+     setupAvatarNameCheck() in the script. Empty/hidden until the visitor has
+     typed enough to check; color and text swap based on nameCheckState. */
+  .avatar-name-status{display:block; min-height:16px; font-size:12.5px; text-align:left; margin:4px 2px 0;}
+  .avatar-name-status.checking{color:var(--ink-soft);}
+  .avatar-name-status.available{color:#2e8b57;}
+  .avatar-name-status.taken{color:var(--red);}
+
   /* Avatar-creation fields folded into the same combined gate form — shown
      alongside or instead of the email fields depending on what a given
      visitor still needs (see updateEmailGateUI()). Reuses the same
@@ -2327,7 +2335,8 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
             <p class="avatar-photo-hint">Take a photo or choose one from your library to personalize your avatar's face (optional)</p>
           </div>
           <form id="avatarNameForm">
-            <input type="text" id="avatarNameInput" placeholder="Name Your Avatar" maxlength="30" required>
+            <input type="text" id="avatarNameInput" placeholder="Name Your Avatar" maxlength="30" required autocomplete="off">
+            <span class="avatar-name-status" id="avatarNameStatus" aria-live="polite"></span>
             <button type="submit" class="shop-btn" style="width:100%; margin-top:10px;">Create My Avatar</button>
           </form>
         </div>
@@ -3953,19 +3962,103 @@ if(avatarPhotoInputEdit){
   });
 }
 
-document.getElementById('avatarNameForm').addEventListener('submit', (e) => {
-  e.preventDefault();
+// Live "is this name taken?" check while naming a brand-new avatar — added
+// Sept 17 after real testing showed a visitor could create "AEON1" on one
+// device and only find out it collided with someone else's avatar much
+// later, on a different device, during cross-device confirmation (see
+// adoptPendingClaim() in avatar-get.js / claim-pending-avatar.js). Catching
+// it right here, before the avatar is even created, is the actual fix —
+// the later collision handling (rescue banner) stays in place as a
+// safety net for names that were still available a moment ago but got
+// taken by someone else in the meantime.
+//
+// Uses the public avatar-name-check.js endpoint (no login required). This
+// is a best-effort heads-up: if the check can't complete (offline, slow,
+// function error) we don't block avatar creation on it — name collisions
+// are still enforced server-side wherever the avatar actually gets saved
+// to an account, so nothing here is load-bearing for correctness, only for
+// catching it early.
+(function setupAvatarNameCheck(){
   const input = document.getElementById('avatarNameInput');
-  const name = input.value.trim();
-  if(!name) return;
-  createAvatar(name, pendingFaceImage);
-  pendingFaceImage = null;
-  avatarPhotoLabel.style.backgroundImage = '';
-  avatarPhotoLabel.classList.remove('has-photo');
-  renderAvatarStrip();
-  openAvatarPanel();
-  openSaveAvatarPrompt();
-});
+  const status = document.getElementById('avatarNameStatus');
+  if(!input || !status) return;
+
+  let nameCheckState = 'idle'; // idle | checking | available | taken | error
+  let lastCheckedName = '';
+  let debounceTimer = null;
+  let requestSeq = 0;
+
+  function renderStatus(){
+    status.classList.remove('checking', 'available', 'taken');
+    if(nameCheckState === 'checking'){
+      status.textContent = 'Checking availability…';
+      status.classList.add('checking');
+    } else if(nameCheckState === 'available'){
+      status.textContent = '✓ That name is available';
+      status.classList.add('available');
+    } else if(nameCheckState === 'taken'){
+      status.textContent = '✗ That avatar name already exists. Please choose a different one.';
+      status.classList.add('taken');
+    } else {
+      status.textContent = '';
+    }
+  }
+
+  async function runCheck(name){
+    const mySeq = ++requestSeq;
+    nameCheckState = 'checking';
+    renderStatus();
+    try{
+      const res = await fetch('/.netlify/functions/avatar-name-check?name=' + encodeURIComponent(name));
+      const body = await res.json().catch(() => ({}));
+      if(mySeq !== requestSeq) return; // a newer keystroke already superseded this check
+      if(res.ok && typeof body.available === 'boolean'){
+        nameCheckState = body.available ? 'available' : 'taken';
+        lastCheckedName = name;
+      } else {
+        nameCheckState = 'error';
+      }
+    } catch(e){
+      if(mySeq !== requestSeq) return;
+      nameCheckState = 'error';
+    }
+    renderStatus();
+  }
+
+  input.addEventListener('input', () => {
+    const name = input.value.trim();
+    clearTimeout(debounceTimer);
+    if(!name){
+      nameCheckState = 'idle';
+      renderStatus();
+      return;
+    }
+    nameCheckState = 'idle';
+    renderStatus();
+    debounceTimer = setTimeout(() => runCheck(name), 400);
+  });
+
+  document.getElementById('avatarNameForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = input.value.trim();
+    if(!name) return;
+    // Only hard-block when we've actually confirmed (for this exact name)
+    // that it's taken — a stale 'checking'/'error' state never blocks
+    // creation, since the check is a convenience, not the source of truth.
+    if(nameCheckState === 'taken' && lastCheckedName === name){
+      renderStatus();
+      input.focus();
+      return;
+    }
+    createAvatar(name, pendingFaceImage);
+    pendingFaceImage = null;
+    avatarPhotoLabel.style.backgroundImage = '';
+    avatarPhotoLabel.classList.remove('has-photo');
+    renderAvatarStrip();
+    openAvatarPanel();
+    openSaveAvatarPrompt();
+  });
+})();
 
 // Confetti burst for the random Perfect Feed/Boost moment (todo.html) —
 // randomizes each piece's start position, fall drift, rotation, size, and
@@ -5036,6 +5129,20 @@ async function handleIdentityUserResolved(user){
   // otherwise a stale pending banner could keep showing after the visitor
   // has already confirmed and logged in successfully.
   if(user) clearPendingConfirmEmail();
+  // Being logged in already means we have a real, confirmed email for this
+  // visitor — the separate "Join Mandeleon" marketing gate (emailUnlocked,
+  // just below) exists purely to capture an email from someone who hasn't
+  // given us one yet, and asking a signed-in visitor to type theirs into
+  // it again is pure friction with no purpose. Real feedback (Sept 17): a
+  // visitor signed up, confirmed, and opened the site in a browser that had
+  // never separately gone through the marketing gate on its own — and got
+  // asked for an email she'd already given us. Every login (including one
+  // resolved on page load from an existing session) now satisfies the gate
+  // too, not just explicitly submitting its form.
+  if(user && !emailUnlocked){
+    emailUnlocked = true;
+    setStoredEmailUnlocked();
+  }
   // The account changed (logged in, logged out, or switched accounts) —
   // any previously-fetched Personal Boards list is now stale (see the
   // PERSONAL BOARDS block further down). This function is only ever
