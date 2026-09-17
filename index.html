@@ -1603,7 +1603,8 @@
             <input type="file" id="gatePhotoInput" accept="image/*" hidden>
             <p class="avatar-photo-hint">Take a photo or choose one from your library to personalize your avatar's face (optional)</p>
           </div>
-          <input type="text" id="gateAvatarName" placeholder="Give your avatar a name..." maxlength="30">
+          <input type="text" id="gateAvatarName" placeholder="Give your avatar a name..." maxlength="30" autocomplete="off">
+          <span class="avatar-name-status" id="gateAvatarNameStatus" aria-live="polite"></span>
           <p class="gate-error" id="gateAvatarNameError">Please give your avatar a name.</p>
         </div>
 
@@ -2814,6 +2815,12 @@ emailGateForm.addEventListener('submit', async (e) => {
   if(needsAvatar){
     avatarName = gateAvatarName.value.trim();
     if(!avatarName){
+      gateAvatarNameError.textContent = 'Please give your avatar a name.';
+      gateAvatarNameError.style.display = 'block';
+      return;
+    }
+    if(gateAvatarNameChecker.isBlocking(avatarName)){
+      gateAvatarNameError.textContent = 'That avatar name already exists. Please choose a different one.';
       gateAvatarNameError.style.display = 'block';
       return;
     }
@@ -2854,6 +2861,7 @@ emailGateForm.addEventListener('submit', async (e) => {
     gatePhotoLabel.style.backgroundImage = '';
     gatePhotoLabel.classList.remove('has-photo');
     gateAvatarName.value = '';
+    gateAvatarNameChecker.reset();
     renderAvatarStrip();
   }
 
@@ -3978,10 +3986,19 @@ if(avatarPhotoInputEdit){
 // are still enforced server-side wherever the avatar actually gets saved
 // to an account, so nothing here is load-bearing for correctness, only for
 // catching it early.
-(function setupAvatarNameCheck(){
-  const input = document.getElementById('avatarNameInput');
-  const status = document.getElementById('avatarNameStatus');
-  if(!input || !status) return;
+//
+// There are TWO separate places a brand-new avatar can be named, with two
+// separate forms/inputs/IDs: the profile-icon "Create Your Avatar" screen
+// (#avatarNameForm / #avatarNameInput), and the "Join Mandeleon" gate that
+// pops up from clicking a locked product tile before an avatar exists
+// (#emailGateForm / #gateAvatarName, built by updateEmailGateUI()). Real
+// testing (Sept 17) showed a visitor going through the SECOND one saw no
+// warning at all, because the first version of this fix only wired up the
+// first form. createAvatarNameChecker() below is shared by both so this
+// can't happen a third time by only remembering one of the two entry
+// points.
+function createAvatarNameChecker(input, status){
+  if(!input || !status) return { isBlocking(){ return false; }, reset(){} };
 
   let nameCheckState = 'idle'; // idle | checking | available | taken | error
   let lastCheckedName = '';
@@ -4038,27 +4055,50 @@ if(avatarPhotoInputEdit){
     debounceTimer = setTimeout(() => runCheck(name), 400);
   });
 
-  document.getElementById('avatarNameForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const name = input.value.trim();
-    if(!name) return;
-    // Only hard-block when we've actually confirmed (for this exact name)
+  return {
+    // Only hard-blocks when we've actually confirmed (for this exact name)
     // that it's taken — a stale 'checking'/'error' state never blocks
     // creation, since the check is a convenience, not the source of truth.
-    if(nameCheckState === 'taken' && lastCheckedName === name){
+    isBlocking(name){
+      if(nameCheckState === 'taken' && lastCheckedName === name.trim()){
+        renderStatus();
+        input.focus();
+        return true;
+      }
+      return false;
+    },
+    reset(){
+      clearTimeout(debounceTimer);
+      nameCheckState = 'idle';
+      lastCheckedName = '';
       renderStatus();
-      input.focus();
-      return;
     }
-    createAvatar(name, pendingFaceImage);
-    pendingFaceImage = null;
-    avatarPhotoLabel.style.backgroundImage = '';
-    avatarPhotoLabel.classList.remove('has-photo');
-    renderAvatarStrip();
-    openAvatarPanel();
-    openSaveAvatarPrompt();
-  });
-})();
+  };
+}
+
+const avatarNameChecker = createAvatarNameChecker(
+  document.getElementById('avatarNameInput'),
+  document.getElementById('avatarNameStatus')
+);
+const gateAvatarNameChecker = createAvatarNameChecker(
+  document.getElementById('gateAvatarName'),
+  document.getElementById('gateAvatarNameStatus')
+);
+
+document.getElementById('avatarNameForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const input = document.getElementById('avatarNameInput');
+  const name = input.value.trim();
+  if(!name) return;
+  if(avatarNameChecker.isBlocking(name)) return;
+  createAvatar(name, pendingFaceImage);
+  pendingFaceImage = null;
+  avatarPhotoLabel.style.backgroundImage = '';
+  avatarPhotoLabel.classList.remove('has-photo');
+  renderAvatarStrip();
+  openAvatarPanel();
+  openSaveAvatarPrompt();
+});
 
 // Confetti burst for the random Perfect Feed/Boost moment (todo.html) —
 // randomizes each piece's start position, fall drift, rotation, size, and
