@@ -5210,13 +5210,11 @@ async function handleIdentityUserResolved(user){
     return;
   }
   try{
-    // TEMPORARY DIAGNOSTIC (Sept 13) — see the matching comment on the
-    // 'signup' handler. This confirms whether avatar-get ran at all on
-    // this login and what it found, without needing dev tools.
-    showFeedToast('🔔 DEBUG: checking account for a saved/pending avatar...');
+    // (Diagnostic toasts that lived here Sept 13-17 while chasing the
+    // cross-device avatar-sync bug were removed once real end-to-end
+    // testing confirmed the mechanism works — see todo.html.)
     const res = await authFetch('/.netlify/functions/avatar-get');
     const body = await res.json().catch(() => ({}));
-    showFeedToast(`🔔 DEBUG: avatar-get ${res.status} → avatar:${!!(body && body.avatar)}`);
     if(body && body.avatar){
       // This account already has an avatar from another device/session —
       // adopt it here as the source of truth for this browser too.
@@ -5253,7 +5251,6 @@ async function handleIdentityUserResolved(user){
       claimPending = false;
     }
   } catch(e){
-    showFeedToast('🔔 DEBUG: avatar-get request threw an error');
     // Couldn't reach the server to check — leave state as-is; the next
     // successful check (next login, or next avatar-panel open) resolves it.
   }
@@ -5748,7 +5745,6 @@ let signupWatchTimer = null;
 let signupWatchSeenUserId = null;
 function beginSignupWatch(){
   if(signupWatchTimer) return; // already watching
-  showFeedToast('🔔 DEBUG: watching for signup completion...');
   let attempts = 0;
   signupWatchTimer = setInterval(() => {
     attempts++;
@@ -5758,12 +5754,10 @@ function beginSignupWatch(){
       signupWatchSeenUserId = user.id;
       clearInterval(signupWatchTimer);
       signupWatchTimer = null;
-      showFeedToast(`🔔 DEBUG: currentUser() appeared (${user.email})`);
       handleSignupDetected(user);
     } else if(attempts >= 240){
       clearInterval(signupWatchTimer);
       signupWatchTimer = null;
-      showFeedToast('🔔 DEBUG: signup watch timed out, no currentUser() seen');
     }
   }, 500);
 }
