@@ -2789,6 +2789,7 @@ const emailGateDesc = document.getElementById('emailGateDesc');
 const gateAvatarFields = document.getElementById('gateAvatarFields');
 const gateEmailFields = document.getElementById('gateEmailFields');
 const gateLoginFields = document.getElementById('gateLoginFields');
+const gateUseDifferentEmailBtn = document.getElementById('gateUseDifferentEmailBtn');
 const gateLoginLink = document.getElementById('gateLoginLink');
 const gateAvatarName = document.getElementById('gateAvatarName');
 const gateAvatarNameError = document.getElementById('gateAvatarNameError');
@@ -2815,15 +2816,30 @@ function isValidEmail(v){
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 }
 
+// An avatar that's already been linked to an account (AVATAR_LINKED_KEY —
+// see markAvatarLinked/renderAccountRow's "Welcome back" branch) but has
+// nobody currently logged in on this device only ever gets into that state
+// via an explicit Log out (AVATAR_LINKED_KEY survives it; only account
+// deletion clears it). Real gap found in testing (Sept 20): logging out
+// still let a visitor keep opening tiles and feeding that same avatar with
+// no prompt at all — meaning a linked avatar's progress could keep changing
+// locally while logged out, never actually tied back to the account. Every
+// entry point that can modify the avatar (requestAccess, requestExoticsAccess,
+// performFeed) checks this and routes to a login prompt instead.
+function avatarNeedsRelogin(){
+  return !!getAvatar() && !currentIdentityUser && !!localStorage.getItem(AVATAR_LINKED_KEY);
+}
+
 // Visitors browse the homepage freely. The combined gate only appears the
 // moment they try to open a pin's details or visit a product link — and
 // only asks for what's actually still missing: a new visitor needs both an
 // avatar and an email; someone who unlocked email before this feature
 // existed (but has no avatar) only needs the avatar fields; someone who
 // somehow has an avatar but never unlocked email only needs the email
-// fields. See updateEmailGateUI() for how the form's copy/fields adapt.
+// fields; someone whose avatar is linked but who's logged out just needs to
+// log back in. See updateEmailGateUI() for how the form's copy/fields adapt.
 function requestAccess(action){
-  if(getAvatar() && emailUnlocked){ performAction(action); return; }
+  if(getAvatar() && emailUnlocked && !avatarNeedsRelogin()){ performAction(action); return; }
   pendingAction = action;
   updateEmailGateUI();
   emailGate.classList.add('open');
@@ -2841,7 +2857,7 @@ function performAction(action){
 // first (if not already fully unlocked); only after that do they see the
 // age/disclaimer prompt.
 function requestExoticsAccess(btn){
-  if(!getAvatar() || !emailUnlocked){
+  if(!getAvatar() || !emailUnlocked || avatarNeedsRelogin()){
     pendingAction = {type:'exotics', btn};
     updateEmailGateUI();
     emailGate.classList.add('open');
@@ -2903,11 +2919,21 @@ function updateEmailGateUI(){
   // What's actually needed there is a login, not another email capture.
   const pendingEmail = (!needsAvatar && needsEmail) ? getPendingConfirmEmail() : null;
   const showLoginPrompt = !needsAvatar && needsEmail && !!pendingEmail;
+  // Distinct from showLoginPrompt above: that one is a signup that was
+  // started but never confirmed (no account exists to log into yet on this
+  // device's knowledge). This one is the opposite — the account is real and
+  // this exact avatar was already linked to it; the visitor just logged out
+  // (or the session expired). See avatarNeedsRelogin().
+  const needsRelogin = !needsAvatar && !needsEmail && avatarNeedsRelogin();
 
   gateAvatarFields.hidden = !needsAvatar;
   gateEmailFields.hidden = !needsEmail || showLoginPrompt;
-  gateLoginFields.hidden = !showLoginPrompt;
-  gateSubmitBtn.hidden = showLoginPrompt;
+  gateLoginFields.hidden = !(showLoginPrompt || needsRelogin);
+  // "Not you? Use a different email" only makes sense for the pending-signup
+  // case above (picking a different email to sign up with) — a relogin isn't
+  // about which email, it's the same account, just logged out.
+  gateUseDifferentEmailBtn.hidden = !showLoginPrompt;
+  gateSubmitBtn.hidden = showLoginPrompt || needsRelogin;
   gateAvatarNameError.style.display = 'none';
   gateEmailError.style.display = 'none';
   // "Already have an account? Log In" — the escape hatch out of avatar
@@ -2931,6 +2957,12 @@ function updateEmailGateUI(){
     gateIcon.textContent = '👋';
     emailGateTitleEl.textContent = 'Welcome Back';
     emailGateDesc.textContent = `You already started signing up with ${pendingEmail} — log in to pick up where you left off and unlock the full details.`;
+    gatePrivacyNote.hidden = true;
+  } else if(needsRelogin){
+    const avatar = getAvatar();
+    gateIcon.textContent = '🔒';
+    emailGateTitleEl.textContent = 'Log In to Continue';
+    emailGateDesc.textContent = `${avatar ? avatar.name : 'Your avatar'} is linked to your account — log back in to keep leveling it up.`;
     gatePrivacyNote.hidden = true;
   } else {
     gateIcon.textContent = '🔒';
@@ -4692,6 +4724,15 @@ function performFeed(idx, opts){
   if(!avatar){
     if(opts.closeModalFirst){ closeModal(); }
     openAvatarPanel();
+    return;
+  }
+  // Backstop for the modal's own Feed button, which calls performFeed()
+  // directly rather than through requestAccess() (the modal already passed
+  // that gate once, to be opened at all) — covers the edge case where login
+  // state changes while the modal is still open. See avatarNeedsRelogin().
+  if(avatarNeedsRelogin()){
+    if(opts.closeModalFirst){ closeModal(); }
+    requestAccess({type:'feed', idx});
     return;
   }
   const wasInComa = avatar.inComa;
