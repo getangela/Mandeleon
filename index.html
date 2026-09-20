@@ -3335,6 +3335,12 @@ function getAvatar(){
   } catch(e){ return null; }
 }
 function saveAvatar(avatar){
+  // Stamped on every local write so a login on another/this device can tell
+  // which copy (local vs. whatever's on the account) actually has the most
+  // recent progress — see the compare-before-overwrite logic in
+  // handleIdentityUserResolved(). Left untouched by adopting a server copy
+  // wholesale (that copy carries its own updatedAt already).
+  try{ avatar.updatedAt = new Date().toISOString(); }catch(e){ /* non-fatal */ }
   try{ localStorage.setItem(AVATAR_KEY, JSON.stringify(avatar)); }
   catch(e){ /* storage unavailable — avatar just won't persist this session */ }
   // Background sync to the account, if logged in — see "VISITOR ACCOUNTS"
@@ -5454,6 +5460,19 @@ async function handleIdentityUserResolved(user){
     renamePending = false;
     refreshClaimBanner();
     refreshRenameBanner();
+    // Opportunistic push, not pull. Skipping the avatar-get round-trip here
+    // is intentional (already-linked is the common case, no need to fetch
+    // just to compare) — but that used to mean a login was a pure no-op for
+    // sync, so any local progress that never made it to the server (a save
+    // whose background sync silently failed — see syncAvatarToServer's
+    // network-failure comment — or feeding that happened while the old
+    // avatarNeedsRelogin gate bug let it through signed-out) could sit
+    // unsynced indefinitely, discovered only later as apparent data loss
+    // when some OTHER event finally forced a re-adopt from the server's
+    // stale copy. This device is the one that made these local changes, so
+    // pushing them is always the safe direction — no comparison needed.
+    const avatar = getAvatar();
+    if(avatar) syncAvatarToServer(avatar);
     return;
   }
   try{
@@ -5464,9 +5483,32 @@ async function handleIdentityUserResolved(user){
     const body = await res.json().catch(() => ({}));
     if(body && body.avatar){
       // This account already has an avatar from another device/session —
-      // adopt it here as the source of truth for this browser too.
-      markAvatarLinked();
-      saveAvatar(body.avatar);
+      // normally adopt it here as the source of truth for this browser too.
+      // BUT: don't do that blindly. Real bug (Sept 20): a device can end up
+      // with local progress the server never got (feeding while a gate bug
+      // let that happen signed-out — see avatarNeedsRelogin — or a save that
+      // silently failed offline), and logging back in on that same device
+      // used to overwrite that unsynced local progress with the account's
+      // older stored copy with zero warning, looking exactly like the feed
+      // history had been lost. Compare updatedAt (stamped on every local
+      // save by saveAvatar(); the server's own copy carries the same field,
+      // or falls back to avatar-get's updatedAt from the database row) and
+      // keep whichever is actually newer — adopting the server copy only
+      // when it's not older than what's already here, and otherwise pushing
+      // this device's newer local copy back up to the server instead so the
+      // two reconcile in the correct direction.
+      const localAvatar = getAvatar();
+      const serverUpdatedAt = Date.parse((body.avatar && body.avatar.updatedAt) || body.updatedAt || 0) || 0;
+      const localUpdatedAt = localAvatar ? (Date.parse(localAvatar.updatedAt || 0) || 0) : -1;
+      if(!localAvatar || serverUpdatedAt >= localUpdatedAt){
+        markAvatarLinked();
+        saveAvatar(body.avatar);
+      } else {
+        // Local device is ahead — keep it, and sync it up so the account
+        // (and any other device) catches up instead of staying stale.
+        markAvatarLinked();
+        syncAvatarToServer(localAvatar);
+      }
       claimPending = false;
       renamePending = false;
       renderAvatarStrip();
