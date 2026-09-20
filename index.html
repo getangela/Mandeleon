@@ -5213,6 +5213,24 @@ function renderAccountRow(){
     line3.className = 'account-row-line secondary';
     line3.append('Wrong email/No confirmation? ', retryBtn);
     el.append(line1, line2, line3);
+  } else if(localStorage.getItem(AVATAR_LINKED_KEY)){
+    // This exact avatar was already successfully linked to an account on
+    // this device before — AVATAR_LINKED_KEY is set by markAvatarLinked()
+    // on a real login/signup and is only ever cleared by deleting the
+    // account (see delete-account handler), NOT by a plain Log out. So
+    // currentIdentityUser being null here means "logged out" or "session
+    // expired," never "never signed up." Real feedback (Sept 20): after
+    // signing up and then logging out, this row still showed "New here?
+    // Sign Up · Already signed up? Log In" — reads as if the site forgot a
+    // visitor who was just there. Only offering Log In here isn't just
+    // friendlier, it's also correct: this avatar is already tied to that
+    // account server-side, so "signing up" again for it doesn't apply.
+    const loginBtn = document.createElement('button');
+    loginBtn.type = 'button';
+    loginBtn.className = 'account-link-btn';
+    loginBtn.textContent = 'Log In';
+    loginBtn.addEventListener('click', () => netlifyIdentity.open('login'));
+    el.append('👋 Welcome back — ', loginBtn, ' to continue.');
   } else {
     // Always offer both — there's no reliable way to tell from this device
     // alone whether this visitor already has an account elsewhere (e.g. they
@@ -5222,7 +5240,8 @@ function renderAccountRow(){
     // up again for an email that's already registered — confirmed real bug,
     // Sept 12 testing. Showing both, same pattern as the other auth prompts
     // in the app (e.g. the expired-link modal), lets the visitor pick
-    // correctly regardless of this device's own history.
+    // correctly regardless of this device's own history. (The AVATAR_LINKED_KEY
+    // branch above handles the one case where this device DOES know better.)
     const signUpBtn = document.createElement('button');
     signUpBtn.type = 'button';
     signUpBtn.className = 'account-link-btn';
