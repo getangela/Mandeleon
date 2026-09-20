@@ -1131,6 +1131,30 @@
   .gate-error{display:none; color:var(--red); font-size:12.5px; margin:-4px 0 10px; text-align:left;}
   .gate-privacy{font-size:11.5px; color:#999; margin-top:12px;}
 
+  /* "Log In" prompt shown instead of the email field when this device
+     already knows the visitor's pending signup email — see #gateLoginFields. */
+  /* :not([hidden]) is required here — an unqualified display:flex would
+     override the browser's default [hidden]{display:none} UA rule (same
+     specificity, later in the cascade), un-hiding this block even while its
+     `hidden` attribute is set. */
+  .gate-login-fields:not([hidden]){ display:flex; flex-direction:column; gap:8px; margin-bottom:10px; }
+  .gate-use-different-email{
+    background:none; border:none; color:var(--ink-soft); font-size:12.5px;
+    text-decoration:underline; cursor:pointer; padding:2px; font-family:inherit;
+  }
+  .gate-use-different-email:hover{ color:var(--ink); }
+
+  /* "Already have an account? Log In" — the escape hatch out of avatar
+     creation for a returning visitor whose local data was cleared. Used on
+     both #avatarSetup (profile icon) and the combined gate (#gateLoginLink). */
+  .avatar-setup-login-link{
+    display:block; width:100%; background:none; border:none; color:var(--ink-soft);
+    font-size:13px; text-decoration:underline; cursor:pointer; padding:8px 0 0;
+    font-family:inherit; text-align:center;
+  }
+  .avatar-setup-login-link:hover{ color:var(--ink); }
+  .avatar-setup-login-link[hidden]{ display:none; }
+
   /* Live "is this avatar name available?" hint under #avatarNameInput — see
      setupAvatarNameCheck() in the script. Empty/hidden until the visitor has
      typed enough to check; color and text swap based on nameCheckState. */
@@ -1493,6 +1517,18 @@
   .avatar-claim-banner .avatar-rename-form input:focus{ border-color:var(--ink); }
   .avatar-claim-banner .avatar-rename-form .claim-yes{ flex:none; }
 
+  /* Self-service "Delete my account and avatar" — the type-DELETE-to-confirm
+     modal (see #deleteAccountBackdrop) and its "Delete my account" trigger
+     link in the avatar panel's account row. */
+  #deleteAccountForm input{
+    width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px;
+    font-size:14px; font-family:inherit; outline:none; box-sizing:border-box; text-align:center;
+  }
+  #deleteAccountForm input:focus{ border-color:var(--red); }
+  #deleteAccountSubmit:hover{ background:var(--red-dark); }
+  #deleteAccountSubmit:disabled{ opacity:.6; }
+  .account-link-danger{ color:var(--red); }
+
   /* ---------- Personal Boards (Pinterest-style) ----------
      See todo.html "User accounts & personal boards" / renderBoardsPanel()
      in the script. Account-only — #boardsLoggedOut vs #boardsLoggedIn
@@ -1613,8 +1649,27 @@
           <p class="gate-error" id="gateEmailError">Please enter a valid email address.</p>
         </div>
 
+        <!-- Shown instead of the email field when this device already has a
+             pending signup email on file (see showLoginPrompt in
+             updateEmailGateUI()) — re-asking for an email we already have
+             is confusing (real feedback, Sept 2026: "I already see my
+             avatar face, why ask for my email again?"). Log In is what's
+             actually needed here, not another email capture. -->
+        <div class="gate-login-fields" id="gateLoginFields" hidden>
+          <button type="button" class="gate-submit" id="gateLoginBtn">Log In</button>
+          <button type="button" class="gate-use-different-email" id="gateUseDifferentEmailBtn">Not you? Use a different email</button>
+        </div>
+
         <button type="submit" class="gate-submit" id="gateSubmitBtn">Unlock My Stack</button>
       </form>
+      <!-- Shown whenever this gate is asking for a new avatar to be created
+           (needsAvatar in updateEmailGateUI()) — a returning visitor whose
+           local data got cleared has no avatar HERE to create, but already
+           has one on their account. Without this, the only way to reach
+           "Log In" was creating a throwaway avatar first just to find it
+           (real feedback, Sept 2026). Logging in re-adopts their real
+           avatar automatically via avatar-get.js. -->
+      <button type="button" class="avatar-setup-login-link" id="gateLoginLink" hidden>Already have an account? Log In</button>
       <p class="gate-privacy" id="gatePrivacyNote">No spam — just stack updates. Unsubscribe anytime.</p>
     </div>
   </div>
@@ -2340,6 +2395,16 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
             <span class="avatar-name-status" id="avatarNameStatus" aria-live="polite"></span>
             <button type="submit" class="shop-btn" style="width:100%; margin-top:10px;">Create My Avatar</button>
           </form>
+          <!-- A returning visitor whose local data got cleared (new device,
+               cleared site data, etc.) has no avatar here to create — but
+               they already have one saved to their account. Without this,
+               the only way to reach "Log In" was to create a throwaway
+               avatar first just to find the button (real feedback, Sept
+               2026: "the website thinks I'm a brand new visitor... I am
+               not prompted to just simply log in"). Logging in re-adopts
+               their real avatar automatically via avatar-get.js, same as
+               any other login. -->
+          <button type="button" class="avatar-setup-login-link" id="avatarSetupLoginBtn">Already have an account? Log In</button>
         </div>
         <div id="avatarView" class="avatar-view" hidden>
           <p class="avatar-level-label" id="avatarLevelLabel"></p>
@@ -2355,6 +2420,28 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
           <div class="avatar-coma-banner" id="avatarComaBanner" hidden></div>
           <div class="avatar-meters" id="avatarMeters"></div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Self-service "Delete my account and avatar" — see todo.html "User
+       accounts & personal boards". Opened from the "Delete my account" link
+       in the avatar panel's account row (renderAccountRow()). Requires
+       typing DELETE rather than a plain confirm() dialog, since this is
+       irreversible and destroys real data — a stray click shouldn't be
+       enough (see setupDeleteAccountModal() in the script). -->
+  <div class="modal-backdrop" id="deleteAccountBackdrop">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="deleteAccountTitle">
+      <button class="modal-close" id="deleteAccountClose" aria-label="Close">✕</button>
+      <div class="modal-content">
+        <h2 id="deleteAccountTitle">Delete Your Account?</h2>
+        <p class="desc">This permanently deletes your avatar, saved favorites, and boards, and removes your login. This can't be undone.</p>
+        <form id="deleteAccountForm">
+          <label for="deleteAccountInput" style="display:block; font-size:13px; color:var(--ink-soft); margin-bottom:6px; text-align:left;">Type <b>DELETE</b> to confirm:</label>
+          <input type="text" id="deleteAccountInput" placeholder="DELETE" maxlength="10" autocomplete="off" required>
+          <p class="gate-error" id="deleteAccountError" style="display:none;"></p>
+          <button type="submit" class="shop-btn" id="deleteAccountSubmit" style="width:100%; margin-top:10px; background:var(--red);">Permanently Delete My Account</button>
+        </form>
       </div>
     </div>
   </div>
@@ -2680,6 +2767,8 @@ const emailGateTitleEl = document.getElementById('emailGateTitle');
 const emailGateDesc = document.getElementById('emailGateDesc');
 const gateAvatarFields = document.getElementById('gateAvatarFields');
 const gateEmailFields = document.getElementById('gateEmailFields');
+const gateLoginFields = document.getElementById('gateLoginFields');
+const gateLoginLink = document.getElementById('gateLoginLink');
 const gateAvatarName = document.getElementById('gateAvatarName');
 const gateAvatarNameError = document.getElementById('gateAvatarNameError');
 const gatePrivacyNote = document.getElementById('gatePrivacyNote');
@@ -2751,9 +2840,32 @@ function closeEmailGate(){
   document.body.classList.remove('gate-locked');
   pendingAction = null;
 }
+// Same visual close, but deliberately keeps pendingAction — used when the
+// gate is closing so the visitor can log in (Welcome Back's "Log In", or
+// "Already have an account? Log In"), so that whatever they originally
+// clicked (a product tile, Exotics) resumes automatically once login
+// succeeds, instead of silently forgetting it (see the 'login' handler).
+function closeEmailGateForLogin(){
+  emailGate.classList.remove('open');
+  document.body.classList.remove('gate-locked');
+}
 
 gateEmailClose.addEventListener('click', closeEmailGate);
 emailGate.addEventListener('click', (e) => { if(e.target === emailGate) closeEmailGate(); });
+
+// "Welcome Back" login prompt (see showLoginPrompt in updateEmailGateUI()).
+document.getElementById('gateLoginBtn').addEventListener('click', () => {
+  closeEmailGateForLogin();
+  netlifyIdentity.open('login');
+});
+document.getElementById('gateUseDifferentEmailBtn').addEventListener('click', () => {
+  clearPendingConfirmEmail();
+  updateEmailGateUI();
+});
+gateLoginLink.addEventListener('click', () => {
+  closeEmailGateForLogin();
+  netlifyIdentity.open('login');
+});
 
 // Computes which of the two field groups (avatar creation, email capture)
 // this visitor still needs, and adapts the gate's icon/title/copy/button
@@ -2762,10 +2874,25 @@ emailGate.addEventListener('click', (e) => { if(e.target === emailGate) closeEma
 function updateEmailGateUI(){
   const needsAvatar = !getAvatar();
   const needsEmail = !emailUnlocked;
+  // A returning visitor whose avatar already exists on this device, but who
+  // hasn't logged in this session, can still have a pending signup email on
+  // file (see stashAvatarForEmail()/setPendingConfirmEmail()) — asking them
+  // to type their email into this gate AGAIN is exactly the confusing
+  // "I already see my avatar, why ask again?" real feedback (Sept 2026).
+  // What's actually needed there is a login, not another email capture.
+  const pendingEmail = (!needsAvatar && needsEmail) ? getPendingConfirmEmail() : null;
+  const showLoginPrompt = !needsAvatar && needsEmail && !!pendingEmail;
+
   gateAvatarFields.hidden = !needsAvatar;
-  gateEmailFields.hidden = !needsEmail;
+  gateEmailFields.hidden = !needsEmail || showLoginPrompt;
+  gateLoginFields.hidden = !showLoginPrompt;
+  gateSubmitBtn.hidden = showLoginPrompt;
   gateAvatarNameError.style.display = 'none';
   gateEmailError.style.display = 'none';
+  // "Already have an account? Log In" — the escape hatch out of avatar
+  // creation for a returning visitor whose local data was cleared (see the
+  // comment on #gateLoginLink in the HTML).
+  gateLoginLink.hidden = !needsAvatar;
 
   if(needsAvatar && needsEmail){
     gateIcon.textContent = '🔒';
@@ -2778,6 +2905,11 @@ function updateEmailGateUI(){
     emailGateTitleEl.textContent = 'Create Your Avatar';
     emailGateDesc.textContent = 'Create an avatar to track your longevity journey as you explore the stack.';
     gateSubmitBtn.textContent = 'Create My Avatar';
+    gatePrivacyNote.hidden = true;
+  } else if(showLoginPrompt){
+    gateIcon.textContent = '👋';
+    emailGateTitleEl.textContent = 'Welcome Back';
+    emailGateDesc.textContent = `You already started signing up with ${pendingEmail} — log in to pick up where you left off and unlock the full details.`;
     gatePrivacyNote.hidden = true;
   } else {
     gateIcon.textContent = '🔒';
@@ -4100,6 +4232,16 @@ document.getElementById('avatarNameForm').addEventListener('submit', (e) => {
   openSaveAvatarPrompt();
 });
 
+// "Already have an account? Log In" on the profile-icon "Create Your
+// Avatar" screen — see the comment on this button in the HTML. No
+// pendingAction concern here (unlike the gate's login buttons): opening the
+// avatar panel from the profile icon never sets one, so a plain close is
+// correct.
+document.getElementById('avatarSetupLoginBtn').addEventListener('click', () => {
+  closeAvatarPanel();
+  netlifyIdentity.open('login');
+});
+
 // Confetti burst for the random Perfect Feed/Boost moment (todo.html) —
 // randomizes each piece's start position, fall drift, rotation, size, and
 // timing as inline custom properties, so the single confettiFall keyframe
@@ -4987,7 +5129,12 @@ function renderAccountRow(){
     logoutBtn.className = 'account-link-btn';
     logoutBtn.textContent = 'Log out';
     logoutBtn.addEventListener('click', () => netlifyIdentity.logout());
-    el.append('Signed in as ', emailSpan, ' · ', logoutBtn);
+    const deleteAccountBtn = document.createElement('button');
+    deleteAccountBtn.type = 'button';
+    deleteAccountBtn.className = 'account-link-btn account-link-danger';
+    deleteAccountBtn.textContent = 'Delete my account';
+    deleteAccountBtn.addEventListener('click', openDeleteAccountConfirm);
+    el.append('Signed in as ', emailSpan, ' · ', logoutBtn, ' · ', deleteAccountBtn);
   } else if(pendingEmail){
     // Right after signing up, the visitor already saw the widget's own "check
     // your email" message once — this replaces the generic Sign Up/Log In
@@ -5010,16 +5157,22 @@ function renderAccountRow(){
       renderAccountRow();
       openSaveAvatarPrompt();
     });
-    // Three separate lines rather than one run-on sentence: (1) what just
-    // happened, (2) what to do if you'd already confirmed elsewhere, (3)
-    // what to do if this email itself was the problem (typo, or the
-    // confirmation just isn't showing up). Keeping these visually distinct
-    // is what makes "Use a different email" legible — folded into the same
-    // line as the confirmation notice, real feedback (Sept 14) showed
-    // people couldn't tell what situation it was for.
+    // Three separate lines rather than one run-on sentence: (1) what's on
+    // file for this device, (2) what to do if you'd already confirmed
+    // elsewhere, (3) what to do if this email itself was the problem (typo,
+    // or the confirmation just isn't showing up). Keeping these visually
+    // distinct is what makes "Use a different email" legible — folded into
+    // the same line as the confirmation notice, real feedback (Sept 14)
+    // showed people couldn't tell what situation it was for. Line 1 used to
+    // read "Confirmation email sent to X," which implied that had *just*
+    // happened — misleading on a returning device where this state can sit
+    // for days until the visitor logs in (real feedback, Sept 2026: "I
+    // already confirmed my email, I don't need a notification that one was
+    // sent"). "Signed up with X" states the same fact without presuming
+    // when.
     const line1 = document.createElement('div');
     line1.className = 'account-row-line';
-    line1.append('📬 Confirmation email sent to ', emailSpan);
+    line1.append('📧 Signed up with ', emailSpan);
     const line2 = document.createElement('div');
     line2.className = 'account-row-line secondary';
     line2.append('Already confirmed? ', loginBtn);
@@ -5301,6 +5454,72 @@ function closeBoardsPanel(){
 document.getElementById('openBoardsBtn').addEventListener('click', openBoardsPanel);
 document.getElementById('boardsClose').addEventListener('click', closeBoardsPanel);
 boardsBackdrop.addEventListener('click', (e) => { if(e.target === boardsBackdrop) closeBoardsPanel(); });
+
+// Self-service "Delete my account and avatar" — see todo.html "User
+// accounts & personal boards". Triggered from the "Delete my account" link
+// in renderAccountRow(). Requires typing DELETE (not a plain confirm()
+// dialog, unlike board deletion) since this destroys real data —
+// avatar, saved favorites, boards — and removes the account's login, and
+// none of that is recoverable.
+const deleteAccountBackdrop = document.getElementById('deleteAccountBackdrop');
+function openDeleteAccountConfirm(){
+  const input = document.getElementById('deleteAccountInput');
+  const err = document.getElementById('deleteAccountError');
+  const submitBtn = document.getElementById('deleteAccountSubmit');
+  input.value = '';
+  err.style.display = 'none';
+  submitBtn.disabled = false;
+  submitBtn.textContent = 'Permanently Delete My Account';
+  deleteAccountBackdrop.classList.add('open');
+}
+function closeDeleteAccountConfirm(){
+  deleteAccountBackdrop.classList.remove('open');
+}
+document.getElementById('deleteAccountClose').addEventListener('click', closeDeleteAccountConfirm);
+deleteAccountBackdrop.addEventListener('click', (e) => { if(e.target === deleteAccountBackdrop) closeDeleteAccountConfirm(); });
+
+document.getElementById('deleteAccountForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const input = document.getElementById('deleteAccountInput');
+  const err = document.getElementById('deleteAccountError');
+  const submitBtn = document.getElementById('deleteAccountSubmit');
+  err.style.display = 'none';
+
+  if(input.value.trim().toUpperCase() !== 'DELETE'){
+    err.textContent = 'Type DELETE (all caps) to confirm.';
+    err.style.display = 'block';
+    return;
+  }
+  if(!currentIdentityUser) { closeDeleteAccountConfirm(); return; }
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Deleting…';
+  try{
+    const res = await authFetch('/.netlify/functions/delete-account', { method: 'POST' });
+    const body = await res.json().catch(() => ({}));
+    if(res.ok && body.ok){
+      // Clear every local trace so a reload lands on a clean "Create Your
+      // Avatar" state instead of momentarily showing stale data.
+      try{ localStorage.removeItem(AVATAR_KEY); }catch(e){}
+      try{ localStorage.removeItem(AVATAR_LINKED_KEY); }catch(e){}
+      try{ clearPendingConfirmEmail(); }catch(e){}
+      closeDeleteAccountConfirm();
+      showFeedToast('Your account and avatar have been deleted.');
+      try{ netlifyIdentity.logout(); }catch(e){}
+      setTimeout(() => location.reload(), 600);
+    } else {
+      err.textContent = body.error || 'Could not delete your account — try again in a moment.';
+      err.style.display = 'block';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Permanently Delete My Account';
+    }
+  } catch(err2){
+    err.textContent = 'Could not reach the server — try again in a moment.';
+    err.style.display = 'block';
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Permanently Delete My Account';
+  }
+});
 // Routes through the "Save Your Avatar" prompt (see openSaveAvatarPrompt()
 // below) rather than opening Netlify's Sign Up form directly, same reason
 // as every other Sign Up entry point in the app: capturing the email
@@ -5777,9 +5996,18 @@ let pendingAuthHash = null;
 
 if(typeof netlifyIdentity !== 'undefined'){
   netlifyIdentity.on('init', (user) => { handleIdentityUserResolved(user); });
-  netlifyIdentity.on('login', (user) => {
+  netlifyIdentity.on('login', async (user) => {
     netlifyIdentity.close();
-    handleIdentityUserResolved(user);
+    // Awaited (handleIdentityUserResolved is async — it fetches avatar-get
+    // to adopt this account's avatar) so that whatever the visitor
+    // originally clicked before being routed to Log In (a product tile,
+    // Exotics — see pendingAction / closeEmailGateForLogin()) resumes only
+    // once their avatar/email-unlocked state is actually settled, not
+    // before. Previously this ran performAction() nowhere at all after a
+    // login — a visitor who logged in from the gate had to click their
+    // tile a second time themselves.
+    await handleIdentityUserResolved(user);
+    if(pendingAction){ performAction(pendingAction); pendingAction = null; }
   });
   netlifyIdentity.on('logout', () => { handleIdentityUserResolved(null); });
   // Fires the moment signup succeeds — BEFORE email confirmation, so there's
