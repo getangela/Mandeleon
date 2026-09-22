@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mandeleon — Admin Dashboard</title>
+<!--
+  Admin Dashboard — see todo.html "Content management". Add/edit/delete any
+  product or video tile without touching code. Tiles live in the `tiles`
+  table (database/migrations/004_tiles.sql) behind the tiles-admin-* Netlify
+  Functions, which only ever answer a logged-in visitor whose email is in
+  the ADMIN_EMAILS environment variable — see requireAdmin() in
+  netlify/functions/_lib/db.js. Nothing in this page enforces that on its
+  own; the functions do, so there's no separate "admin" security model to
+  keep in sync here.
+
+  Publishing a change: this page never writes to index.html directly (see
+  the "Publish method" note by the Export button below) — it edits the
+  database, and a separate Export step regenerates a fresh index.html for
+  you to upload the same tested way as always (delete the old one, then
+  Add file -> Upload files). That keeps the live site exactly as static
+  and fast as it's always been, with no new dependency on the database at
+  page-load time for visitors.
+-->
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<style>
+  :root{
+    --red:#e60023; --red-dark:#ad081b; --ink:#1a1a1a; --ink-soft:#4a4a4a;
+    --paper:#fff; --bg:#f7f7f7; --border:#e5e5e5; --green:#1f7a3d; --amber:#a06a1c;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--ink); line-height:1.5;
+  }
+  a{color:var(--red);}
+  .wrap{max-width:1100px; margin:0 auto; padding:28px 20px 80px;}
+  h1{font-size:22px; margin:0;}
+  .sub{color:var(--ink-soft); font-size:13.5px; margin:4px 0 0;}
+
+  /* ---------- login gate ---------- */
+  #loginGate{
+    max-width:420px; margin:80px auto; text-align:center; background:var(--paper);
+    border:1px solid var(--border); border-radius:14px; padding:36px 28px;
+  }
+  #loginGate h1{margin-bottom:10px;}
+  #loginGate p{color:var(--ink-soft); font-size:14px; margin:0 0 20px;}
+  .btn{
+    border:none; border-radius:10px; padding:10px 18px; font-size:14px; font-weight:700;
+    cursor:pointer; display:inline-flex; align-items:center; gap:6px;
+  }
+  .btn-primary{background:var(--red); color:#fff;}
+  .btn-primary:hover{background:var(--red-dark);}
+  .btn-ghost{background:#eee; color:var(--ink);}
+  .btn-ghost:hover{background:#e0e0e0;}
+  .btn-danger{background:#fdecec; color:#b3261e;}
+  .btn-danger:hover{background:#fbd8d8;}
+  .btn:disabled{opacity:.5; cursor:not-allowed;}
+  #authError{color:#b3261e; font-size:13px; margin-top:14px; display:none;}
+
+  /* ---------- header / toolbar ---------- */
+  header.top{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:16px;
+    margin-bottom:22px; flex-wrap:wrap;
+  }
+  #logoutBtn{font-size:12.5px; background:none; border:none; color:var(--ink-soft); cursor:pointer; text-decoration:underline; padding:0;}
+  .toolbar{
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:18px;
+    background:var(--paper); border:1px solid var(--border); border-radius:12px; padding:12px 14px;
+  }
+  .toolbar input[type="search"], .toolbar select{
+    border:1px solid var(--border); border-radius:8px; padding:8px 10px; font-size:13.5px;
+    background:#fafafa; color:var(--ink);
+  }
+  .toolbar input[type="search"]{flex:1; min-width:160px;}
+  .toolbar .spacer{flex:1;}
+  #tileCount{font-size:12.5px; color:var(--ink-soft); white-space:nowrap;}
+
+  /* ---------- tile table ---------- */
+  table{width:100%; border-collapse:collapse; background:var(--paper); border:1px solid var(--border); border-radius:12px; overflow:hidden;}
+  thead th{
+    text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:var(--ink-soft);
+    background:#fafafa; padding:10px 12px; border-bottom:1px solid var(--border);
+  }
+  tbody td{padding:10px 12px; border-bottom:1px solid var(--border); font-size:13.5px; vertical-align:middle;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:#fffaf9;}
+  .t-icon{font-size:18px; width:34px; text-align:center;}
+  .t-name{font-weight:700;}
+  .t-name .slug{display:block; font-weight:400; color:var(--ink-soft); font-size:11.5px;}
+  .cat-chip{
+    display:inline-block; background:#f0f0f0; color:var(--ink-soft); font-size:10.5px; font-weight:700;
+    text-transform:uppercase; padding:2px 7px; border-radius:8px; margin:1px 3px 1px 0;
+  }
+  .tag-pill{font-size:10.5px; font-weight:800; text-transform:uppercase; padding:2px 8px; border-radius:8px;}
+  .tag-video{background:#e0ecfb; color:#1c5faa;}
+  .tag-product{background:#eee; color:#777;}
+  .row-actions{display:flex; gap:6px;}
+  .row-actions button{
+    font-size:12px; padding:5px 10px; border-radius:7px; border:1px solid var(--border);
+    background:#fff; cursor:pointer;
+  }
+  .row-actions button:hover{background:#f5f5f5;}
+  #emptyState{padding:40px 20px; text-align:center; color:var(--ink-soft); font-size:14px;}
+
+  /* ---------- modal (tile form + delete confirm) ---------- */
+  .modal-backdrop{
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:200;
+    align-items:flex-start; justify-content:center; overflow-y:auto; padding:40px 16px;
+  }
+  .modal-backdrop.open{display:flex;}
+  .modal{background:var(--paper); border-radius:14px; max-width:640px; width:100%; padding:26px 26px 22px; position:relative;}
+  .modal h2{margin:0 0 4px; font-size:19px;}
+  .modal .modal-sub{color:var(--ink-soft); font-size:12.5px; margin:0 0 18px;}
+  .modal-close{position:absolute; top:16px; right:16px; border:none; background:#f0f0f0; width:30px; height:30px; border-radius:50%; cursor:pointer; font-size:14px;}
+
+  .field{margin-bottom:14px;}
+  .field label{display:block; font-size:12.5px; font-weight:700; margin-bottom:5px;}
+  .field .hint{font-size:11.5px; color:var(--ink-soft); font-weight:400; margin-top:4px;}
+  .field input[type="text"], .field input[type="url"], .field input[type="date"], .field textarea, .field select{
+    width:100%; border:1px solid var(--border); border-radius:8px; padding:9px 10px; font-size:14px; font-family:inherit;
+  }
+  .field textarea{resize:vertical; min-height:60px;}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  @media (max-width:560px){ .row2{grid-template-columns:1fr;} }
+  .type-toggle{display:flex; gap:8px;}
+  .type-toggle label{
+    flex:1; border:1px solid var(--border); border-radius:8px; padding:9px; text-align:center; font-size:13.5px;
+    cursor:pointer; font-weight:600; color:var(--ink-soft);
+  }
+  .type-toggle input{display:none;}
+  .type-toggle input:checked + span{color:var(--red);}
+  .type-toggle label:has(input:checked){border-color:var(--red); background:#fff4f4; color:var(--red);}
+  .cat-grid{display:grid; grid-template-columns:repeat(3, 1fr); gap:6px 10px;}
+  @media (max-width:560px){ .cat-grid{grid-template-columns:repeat(2, 1fr);} }
+  .cat-grid label{display:flex; align-items:center; gap:6px; font-size:13px; font-weight:400; cursor:pointer;}
+  .checkline{display:flex; align-items:center; gap:8px; font-size:13.5px; font-weight:400; cursor:pointer;}
+  .img-preview{width:100px; height:100px; border-radius:10px; background:#f0f0f0 center/cover no-repeat; border:1px solid var(--border); margin-bottom:8px;}
+  .conditional-field{border-top:1px dashed var(--border); margin-top:14px; padding-top:14px;}
+  .modal-footer{display:flex; justify-content:space-between; align-items:center; margin-top:20px; gap:10px;}
+  #formError{color:#b3261e; font-size:13px; margin-top:6px; display:none;}
+
+  #confirmModal .modal{max-width:400px;}
+  #confirmModal input[type="text"]{width:100%; border:1px solid var(--border); border-radius:8px; padding:9px 10px; font-size:14px; margin-top:10px;}
+
+  /* ---------- export panel ---------- */
+  .export-box{background:var(--paper); border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin-bottom:18px;}
+  .export-box h2{font-size:14px; margin:0 0 6px;}
+  .export-box p{font-size:13px; color:var(--ink-soft); margin:0 0 12px;}
+  #exportStatus{font-size:13px; color:var(--ink); margin-top:10px; display:none;}
+  #exportStatus.active{display:block;}
+  .progress-bar{height:6px; background:#eee; border-radius:4px; overflow:hidden; margin-top:6px;}
+  .progress-bar-fill{height:100%; background:var(--red); width:0%; transition:width .2s;}
+  .warn-box{background:#fff8e8; border:1px solid #f0dca0; color:var(--amber); border-radius:8px; padding:10px 12px; font-size:12.5px; margin-top:10px;}
+</style>
+</head>
+<body>
+
+<div id="loginGate">
+  <h1>🔒 Mandeleon Admin</h1>
+  <p>Log in with your Mandeleon account to manage tiles.</p>
+  <button class="btn btn-primary" id="loginBtn">Log In</button>
+  <p id="authError"></p>
+</div>
+
+<div class="wrap" id="dashboard" hidden>
+  <header class="top">
+    <div>
+      <h1>Mandeleon Admin</h1>
+      <p class="sub">Add, edit, and delete tiles — then export a fresh index.html to upload.</p>
+    </div>
+    <button id="logoutBtn">Log out</button>
+  </header>
+
+  <div class="export-box">
+    <h2>⬇ Publish changes</h2>
+    <p>Tiles you add/edit/delete here save immediately to the database, but the <b>live site</b> doesn't change until you export a fresh index.html and upload it — same delete-and-drag-and-drop method you already use. This keeps mandeleon.com exactly as fast and static as it's always been.</p>
+    <button class="btn btn-primary" id="exportBtn">⬇ Export index.html</button>
+    <div id="exportStatus">
+      <span id="exportStatusText">Working…</span>
+      <div class="progress-bar"><div class="progress-bar-fill" id="exportProgressFill"></div></div>
+    </div>
+    <div class="warn-box">⚠️ The download will be named <code>mandeleon-export.html</code>, not <code>index.html</code> — on purpose, so it can never silently collide with an old download and get auto-renamed by your browser (that's exactly what caused a real outage once before). <b>Rename it to <code>index.html</code> yourself before uploading it.</b></div>
+  </div>
+
+  <div class="toolbar">
+    <input type="search" id="searchInput" placeholder="Search by name…">
+    <select id="catFilter"><option value="">All categories</option></select>
+    <select id="typeFilter">
+      <option value="">All types</option>
+      <option value="product">Products</option>
+      <option value="video">Videos</option>
+    </select>
+    <div class="spacer"></div>
+    <span id="tileCount"></span>
+    <button class="btn btn-primary" id="newTileBtn">+ New Tile</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th></th><th>Name</th><th>Type</th><th>Categories</th><th>Link</th><th></th></tr>
+    </thead>
+    <tbody id="tileTableBody"></tbody>
+  </table>
+  <div id="emptyState" hidden>No tiles match your filters.</div>
+</div>
+
+<!-- ============ TILE ADD/EDIT MODAL ============ -->
+<div class="modal-backdrop" id="tileFormBackdrop">
+  <div class="modal">
+    <button class="modal-close" id="tileFormClose" aria-label="Close">✕</button>
+    <h2 id="tileFormTitle">New Tile</h2>
+    <p class="modal-sub" id="tileFormSlugLine"></p>
+
+    <form id="tileForm">
+      <div class="field">
+        <label>Type</label>
+        <div class="type-toggle">
+          <label><input type="radio" name="type" value="product" checked><span>🛍️ Product</span></label>
+          <label><input type="radio" name="type" value="video"><span>🎬 Video</span></label>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="f-name">Name</label>
+        <input type="text" id="f-name" maxlength="80">
+      </div>
+
+      <div class="field">
+        <label>Categories <span class="hint">— pick every bucket this tile should show up under</span></label>
+        <div class="cat-grid" id="catCheckboxes"></div>
+      </div>
+
+      <div class="row2">
+        <div class="field">
+          <label for="f-icon">Icon (one emoji)</label>
+          <input type="text" id="f-icon" maxlength="4" placeholder="🥬">
+        </div>
+        <div class="field">
+          <label for="f-color">Accent color</label>
+          <input type="text" id="f-color" placeholder="#3f8f6b">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="f-note">Short teaser <span class="hint">— one line, shown under the tile's name</span></label>
+        <textarea id="f-note" maxlength="220" rows="2"></textarea>
+      </div>
+
+      <div class="field">
+        <label for="f-desc">Full description <span class="hint">— shown when the tile is opened</span></label>
+        <textarea id="f-desc" maxlength="600" rows="3"></textarea>
+      </div>
+
+      <div class="field">
+        <label for="f-date">Date added</label>
+        <input type="date" id="f-date">
+      </div>
+
+      <div id="productFields">
+        <div class="field">
+          <label>Image</label>
+          <div class="img-preview" id="imgPreview"></div>
+          <input type="file" id="f-imgFile" accept="image/*">
+          <p class="hint" id="imgCompressStatus"></p>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label class="checkline"><input type="checkbox" id="f-affiliate"> Affiliate link</label>
+          </div>
+          <div class="field">
+            <label for="f-link">Buy/view link</label>
+            <input type="text" id="f-link" placeholder="https://…">
+          </div>
+        </div>
+      </div>
+
+      <div id="videoFields" hidden>
+        <div class="field">
+          <label for="f-youtube">YouTube URL or video ID</label>
+          <input type="text" id="f-youtube" placeholder="https://youtube.com/shorts/… or just the ID">
+        </div>
+        <div class="field">
+          <label class="checkline"><input type="checkbox" id="f-noembed"> Link out to YouTube instead of embedding inline</label>
+        </div>
+        <div class="field">
+          <label for="f-source">Source credit <span class="hint">(optional — e.g. a creator's name)</span></label>
+          <input type="text" id="f-source">
+        </div>
+      </div>
+
+      <div id="gadgetMeterField" class="field" hidden>
+        <label for="f-gadgetMeter">Feeds which meter? <span class="hint">— Gadgets tiles need this to be feedable at all</span></label>
+        <select id="f-gadgetMeter">
+          <option value="">— none set —</option>
+        </select>
+      </div>
+
+      <div class="conditional-field">
+        <div class="field">
+          <label class="checkline"><input type="checkbox" id="f-exoticsLinked"> This tile is the normal-category twin of an Exotics tile
+            <span class="hint">— only relevant if you're also creating a matching Exotics-only entry with the exact same name; see gamification-spec.md Section 6</span>
+          </label>
+        </div>
+        <div class="field">
+          <label class="checkline"><input type="checkbox" id="f-hideBadge"> Hide the "New"/date badge on this tile</label>
+        </div>
+      </div>
+
+      <p id="formError"></p>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-danger" id="deleteFromFormBtn" hidden>Delete</button>
+        <div style="flex:1"></div>
+        <button type="button" class="btn btn-ghost" id="tileFormCancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="tileFormSave">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============ DELETE CONFIRM MODAL ============ -->
+<div class="modal-backdrop" id="confirmModal">
+  <div class="modal">
+    <button class="modal-close" id="confirmClose" aria-label="Close">✕</button>
+    <h2>Delete this tile?</h2>
+    <p class="modal-sub">This can't be undone. Type the tile's name below to confirm.</p>
+    <p style="font-weight:700" id="confirmTileName"></p>
+    <input type="text" id="confirmInput" placeholder="Type the name exactly">
+    <p id="confirmError" style="color:#b3261e; font-size:12.5px; display:none; margin-top:8px;"></p>
+    <div class="modal-footer">
+      <div style="flex:1"></div>
+      <button type="button" class="btn btn-ghost" id="confirmCancel">Cancel</button>
+      <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete tile</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   CONFIG — mirrors index.html's own CATEGORY_LABELS and the 8 meter keys,
+   kept in sync by hand since this is a separate file with no shared
+   include mechanism (the whole site is deliberately build-step-free).
+   ========================================================= */
+const CATEGORY_LABELS = {
+  nad:"NAD+ & Longevity", senolytic:"Senolytic & Autophagy", antioxidant:"Antioxidant",
+  cognitive:"Cognitive & Nootropic", energy:"Energy & Mitochondria", sleep:"Sleep & Stress",
+  hormonal:"Hormonal", womens:"Women Only", skin:"Skin, Hair & Collagen", immune:"Immune Support",
+  cardio:"Cardiovascular", gutliver:"Gut & Liver", muscle:"Muscle & Performance",
+  foundational:"Foundational", diet:"Diet", gadgets:"Gadgets", topicals:"Topicals",
+  cuttingedge:"Cutting Edge", agetesting:"Age Testing", exotics:"Exotics", inspiration:"Mindset"
+};
+const METER_LABELS = {
+  sleep:"😴 Sleep & Stress", energy:"⚡ Energy & Cellular Repair", brain:"🧠 Brain", gut:"🦠 Gut & Liver",
+  heart:"❤️ Heart", immune:"🛡️ Immune & Defense", muscle:"💪 Muscle & Hormones", skin:"🪞 Skin"
+};
+
+function todayStr(){
+  // Local calendar day, not UTC — same lesson from index.html's own
+  // decay-timing bug (Sept 21): a date field an admin fills in should
+  // match the day it feels like to HER, not whatever UTC happens to say.
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+/* =========================================================
+   AUTH — Netlify Identity. Real enforcement happens server-side in every
+   tiles-admin-* function (requireAdmin() in _lib/db.js); this is only
+   about showing the right screen and attaching a fresh JWT to requests.
+   ========================================================= */
+let currentUser = null;
+
+async function authFetch(path, opts){
+  opts = opts || {};
+  const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+  if(currentUser){
+    try{ headers['Authorization'] = `Bearer ${await currentUser.jwt()}`; } catch(e){ /* request goes out unauthenticated; server will 401/403 */ }
+  }
+  return fetch(path, Object.assign({}, opts, { headers }));
+}
+
+const loginGate = document.getElementById('loginGate');
+const dashboard = document.getElementById('dashboard');
+const authError = document.getElementById('authError');
+
+function showLoginGate(message){
+  loginGate.style.display = 'block';
+  dashboard.hidden = true;
+  if(message){ authError.textContent = message; authError.style.display = 'block'; }
+  else { authError.style.display = 'none'; }
+}
+
+async function tryEnterDashboard(){
+  const res = await authFetch('/.netlify/functions/tiles-admin-list');
+  if(res.status === 403){
+    showLoginGate("You're logged in, but this account isn't an admin on this site.");
+    return;
+  }
+  if(!res.ok){
+    showLoginGate("Couldn't reach the server — try again in a moment.");
+    return;
+  }
+  loginGate.style.display = 'none';
+  dashboard.hidden = false;
+  const body = await res.json();
+  allTiles = body.tiles || [];
+  renderTileTable();
+}
+
+document.getElementById('loginBtn').addEventListener('click', () => netlifyIdentity.open('login'));
+document.getElementById('logoutBtn').addEventListener('click', () => netlifyIdentity.logout());
+
+netlifyIdentity.on('init', user => {
+  currentUser = user;
+  if(user) tryEnterDashboard(); else showLoginGate();
+});
+netlifyIdentity.on('login', user => {
+  currentUser = user;
+  netlifyIdentity.close();
+  tryEnterDashboard();
+});
+netlifyIdentity.on('logout', () => {
+  currentUser = null;
+  showLoginGate();
+});
+netlifyIdentity.init();
+
+/* =========================================================
+   TILE LIST — search/filter over the lightweight (no-image) list.
+   ========================================================= */
+let allTiles = [];
+let editingId = null; // null while the form is in "create" mode
+
+const catFilterSelect = document.getElementById('catFilter');
+Object.entries(CATEGORY_LABELS).forEach(([slug, label]) => {
+  const opt = document.createElement('option');
+  opt.value = slug; opt.textContent = label;
+  catFilterSelect.appendChild(opt);
+});
+
+function filteredTiles(){
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  const cat = catFilterSelect.value;
+  const type = document.getElementById('typeFilter').value;
+  return allTiles.filter(t => {
+    if(q && !t.name.toLowerCase().includes(q)) return false;
+    if(cat && !(t.cats || []).includes(cat)) return false;
+    if(type && t.type !== type) return false;
+    return true;
+  });
+}
+
+function renderTileTable(){
+  const tbody = document.getElementById('tileTableBody');
+  const tiles = filteredTiles();
+  tbody.innerHTML = '';
+  document.getElementById('emptyState').hidden = tiles.length > 0;
+  document.getElementById('tileCount').textContent = `${tiles.length} of ${allTiles.length} tiles`;
+
+  tiles.forEach(t => {
+    const tr = document.createElement('tr');
+
+    const iconTd = document.createElement('td');
+    iconTd.className = 't-icon';
+    iconTd.textContent = t.icon || (t.type === 'video' ? '🎬' : '•');
+    tr.appendChild(iconTd);
+
+    const nameTd = document.createElement('td');
+    nameTd.className = 't-name';
+    nameTd.textContent = t.name;
+    const slugLine = document.createElement('span');
+    slugLine.className = 'slug';
+    slugLine.textContent = t.slug;
+    nameTd.appendChild(slugLine);
+    tr.appendChild(nameTd);
+
+    const typeTd = document.createElement('td');
+    const pill = document.createElement('span');
+    pill.className = 'tag-pill ' + (t.type === 'video' ? 'tag-video' : 'tag-product');
+    pill.textContent = t.type === 'video' ? 'Video' : 'Product';
+    typeTd.appendChild(pill);
+    tr.appendChild(typeTd);
+
+    const catsTd = document.createElement('td');
+    (t.cats || []).forEach(c => {
+      const chip = document.createElement('span');
+      chip.className = 'cat-chip';
+      chip.textContent = CATEGORY_LABELS[c] || c;
+      catsTd.appendChild(chip);
+    });
+    tr.appendChild(catsTd);
+
+    const linkTd = document.createElement('td');
+    if(t.link && t.link !== '#'){
+      const a = document.createElement('a');
+      a.href = t.link; a.target = '_blank'; a.rel = 'noopener';
+      a.textContent = 'view ↗';
+      a.style.fontSize = '12.5px';
+      linkTd.appendChild(a);
+    } else {
+      linkTd.textContent = '—';
+      linkTd.style.color = 'var(--ink-soft)';
+      linkTd.style.fontSize = '12.5px';
+    }
+    tr.appendChild(linkTd);
+
+    const actionsTd = document.createElement('td');
+    const actions = document.createElement('div');
+    actions.className = 'row-actions';
+    const editBtn = document.createElement('button');
+    editBtn.textContent = 'Edit';
+    editBtn.addEventListener('click', () => openTileForm(t.id));
+    actions.appendChild(editBtn);
+    actionsTd.appendChild(actions);
+    tr.appendChild(actionsTd);
+
+    tbody.appendChild(tr);
+  });
+}
+
+document.getElementById('searchInput').addEventListener('input', renderTileTable);
+catFilterSelect.addEventListener('change', renderTileTable);
+document.getElementById('typeFilter').addEventListener('change', renderTileTable);
+
+/* =========================================================
+   TILE FORM — shared between "New Tile" and "Edit".
+   ========================================================= */
+const tileFormBackdrop = document.getElementById('tileFormBackdrop');
+const tileForm = document.getElementById('tileForm');
+let pendingImgDataUrl = null; // set once a new image finishes compressing
+
+const catCheckboxes = document.getElementById('catCheckboxes');
+Object.entries(CATEGORY_LABELS).forEach(([slug, label]) => {
+  const lbl = document.createElement('label');
+  const cb = document.createElement('input');
+  cb.type = 'checkbox'; cb.value = slug; cb.className = 'cat-cb';
+  cb.addEventListener('change', updateConditionalFields);
+  lbl.appendChild(cb);
+  lbl.appendChild(document.createTextNode(label));
+  catCheckboxes.appendChild(lbl);
+});
+
+const gadgetMeterSelect = document.getElementById('f-gadgetMeter');
+Object.entries(METER_LABELS).forEach(([key, label]) => {
+  const opt = document.createElement('option');
+  opt.value = key; opt.textContent = label;
+  gadgetMeterSelect.appendChild(opt);
+});
+
+function getCheckedCats(){
+  return Array.from(catCheckboxes.querySelectorAll('.cat-cb:checked')).map(cb => cb.value);
+}
+function setCheckedCats(cats){
+  catCheckboxes.querySelectorAll('.cat-cb').forEach(cb => { cb.checked = (cats || []).includes(cb.value); });
+}
+
+function updateConditionalFields(){
+  const type = tileForm.querySelector('input[name="type"]:checked').value;
+  document.getElementById('productFields').hidden = type === 'video';
+  document.getElementById('videoFields').hidden = type === 'product';
+  document.getElementById('gadgetMeterField').hidden = !getCheckedCats().includes('gadgets');
+}
+tileForm.querySelectorAll('input[name="type"]').forEach(r => r.addEventListener('change', updateConditionalFields));
+
+function resetForm(){
+  tileForm.reset();
+  setCheckedCats([]);
+  pendingImgDataUrl = null;
+  document.getElementById('imgPreview').style.backgroundImage = '';
+  document.getElementById('imgCompressStatus').textContent = '';
+  document.getElementById('f-date').value = todayStr();
+  document.getElementById('formError').style.display = 'none';
+  updateConditionalFields();
+}
+
+async function openTileForm(id){
+  resetForm();
+  editingId = id || null;
+  document.getElementById('deleteFromFormBtn').hidden = !editingId;
+
+  if(!editingId){
+    document.getElementById('tileFormTitle').textContent = 'New Tile';
+    document.getElementById('tileFormSlugLine').textContent = 'A permanent URL slug will be generated from the name once you save.';
+    tileFormBackdrop.classList.add('open');
+    return;
+  }
+
+  document.getElementById('tileFormTitle').textContent = 'Edit Tile';
+  document.getElementById('tileFormSlugLine').textContent = 'Loading…';
+  tileFormBackdrop.classList.add('open');
+
+  const res = await authFetch(`/.netlify/functions/tiles-admin-get?id=${id}`);
+  if(!res.ok){
+    document.getElementById('tileFormSlugLine').textContent = "Couldn't load this tile.";
+    return;
+  }
+  const { tile: t } = await res.json();
+  document.getElementById('tileFormSlugLine').textContent = `Slug: ${t.slug} (permanent — never changes, even if you rename this tile)`;
+  tileForm.querySelector(`input[name="type"][value="${t.type}"]`).checked = true;
+  document.getElementById('f-name').value = t.name || '';
+  setCheckedCats(t.cats || []);
+  document.getElementById('f-icon').value = t.icon || '';
+  document.getElementById('f-color').value = t.color || '';
+  document.getElementById('f-note').value = t.note || '';
+  document.getElementById('f-desc').value = t.desc || '';
+  document.getElementById('f-date').value = t.dateAdded || todayStr();
+  document.getElementById('f-affiliate').checked = !!t.affiliate;
+  document.getElementById('f-link').value = (t.link && t.link !== '#') ? t.link : '';
+  document.getElementById('f-youtube').value = t.youtubeId || '';
+  document.getElementById('f-noembed').checked = !!t.noEmbed;
+  document.getElementById('f-source').value = t.source || '';
+  document.getElementById('f-exoticsLinked').checked = !!t.exoticsLinked;
+  document.getElementById('f-hideBadge').checked = !!t.hideBadge;
+  if(t.img){
+    document.getElementById('imgPreview').style.backgroundImage = `url('${t.img}')`;
+    pendingImgDataUrl = t.img; // unchanged unless a new file is picked
+  }
+  if(t.gadgetMeter) gadgetMeterSelect.value = t.gadgetMeter;
+  updateConditionalFields();
+}
+
+document.getElementById('newTileBtn').addEventListener('click', () => openTileForm(null));
+document.getElementById('tileFormClose').addEventListener('click', () => tileFormBackdrop.classList.remove('open'));
+document.getElementById('tileFormCancel').addEventListener('click', () => tileFormBackdrop.classList.remove('open'));
+tileFormBackdrop.addEventListener('click', e => { if(e.target === tileFormBackdrop) tileFormBackdrop.classList.remove('open'); });
+
+/* ---- image upload: resize + compress client-side, same spirit as the
+   avatar photo crop elsewhere on the site — nobody wants to accidentally
+   upload a 12MB phone photo into a page that's already ~12MB on its own. */
+function compressImage(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read file'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Not a readable image'));
+      img.onload = () => {
+        const MAX = 900;
+        let { width, height } = img;
+        if(width > MAX || height > MAX){
+          if(width > height){ height = Math.round(height * (MAX / width)); width = MAX; }
+          else { width = Math.round(width * (MAX / height)); height = MAX; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.82));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+document.getElementById('f-imgFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const statusEl = document.getElementById('imgCompressStatus');
+  statusEl.textContent = 'Compressing…';
+  try{
+    const dataUrl = await compressImage(file);
+    pendingImgDataUrl = dataUrl;
+    document.getElementById('imgPreview').style.backgroundImage = `url('${dataUrl}')`;
+    statusEl.textContent = `Ready (${Math.round(dataUrl.length/1024)} KB)`;
+  } catch(err){
+    statusEl.textContent = "Couldn't process that image — try a different file.";
+  }
+});
+
+function showFormError(msg){
+  const el = document.getElementById('formError');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+tileForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  document.getElementById('formError').style.display = 'none';
+
+  const type = tileForm.querySelector('input[name="type"]:checked').value;
+  const cats = getCheckedCats();
+  const name = document.getElementById('f-name').value.trim();
+  if(!name){ showFormError('Name is required.'); return; }
+  if(cats.length === 0){ showFormError('Pick at least one category.'); return; }
+  if(type === 'video' && !document.getElementById('f-youtube').value.trim()){
+    showFormError('Video tiles need a YouTube URL or ID.'); return;
+  }
+
+  // Accept either a full YouTube URL or a bare ID.
+  let youtubeId = document.getElementById('f-youtube').value.trim();
+  const urlMatch = youtubeId.match(/(?:youtube\.com\/(?:shorts\/|watch\?v=)|youtu\.be\/)([a-zA-Z0-9_-]{6,})/);
+  if(urlMatch) youtubeId = urlMatch[1];
+
+  const payload = {
+    id: editingId || undefined,
+    type, name, cats,
+    icon: document.getElementById('f-icon').value.trim(),
+    color: document.getElementById('f-color').value.trim(),
+    note: document.getElementById('f-note').value.trim(),
+    desc: document.getElementById('f-desc').value.trim(),
+    dateAdded: document.getElementById('f-date').value || todayStr(),
+    affiliate: document.getElementById('f-affiliate').checked,
+    link: type === 'product' ? document.getElementById('f-link').value.trim() : `https://www.youtube.com/shorts/${youtubeId}`,
+    img: type === 'product' ? pendingImgDataUrl : null,
+    youtubeId: type === 'video' ? youtubeId : null,
+    noEmbed: document.getElementById('f-noembed').checked,
+    source: document.getElementById('f-source').value.trim(),
+    exoticsLinked: document.getElementById('f-exoticsLinked').checked,
+    hideBadge: document.getElementById('f-hideBadge').checked,
+    gadgetMeter: cats.includes('gadgets') ? gadgetMeterSelect.value : null,
+  };
+
+  const saveBtn = document.getElementById('tileFormSave');
+  saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
+  try{
+    const res = await authFetch('/.netlify/functions/tiles-admin-save', { method:'POST', body: JSON.stringify(payload) });
+    const body = await res.json().catch(() => ({}));
+    if(!res.ok){ showFormError(body.error || 'Save failed.'); return; }
+    tileFormBackdrop.classList.remove('open');
+    await tryEnterDashboard();
+  } catch(err){
+    showFormError("Couldn't reach the server — try again.");
+  } finally {
+    saveBtn.disabled = false; saveBtn.textContent = 'Save';
+  }
+});
+
+/* =========================================================
+   DELETE — typed-name confirmation, same guarded pattern as the
+   visitor-facing "Delete my account" flow, since there's no undo.
+   ========================================================= */
+const confirmModal = document.getElementById('confirmModal');
+let deleteTargetId = null;
+let deleteTargetName = '';
+
+function openDeleteConfirm(id, name){
+  deleteTargetId = id; deleteTargetName = name;
+  document.getElementById('confirmTileName').textContent = name;
+  document.getElementById('confirmInput').value = '';
+  document.getElementById('confirmError').style.display = 'none';
+  confirmModal.classList.add('open');
+}
+document.getElementById('deleteFromFormBtn').addEventListener('click', () => {
+  if(!editingId) return;
+  openDeleteConfirm(editingId, document.getElementById('f-name').value.trim());
+});
+document.getElementById('confirmClose').addEventListener('click', () => confirmModal.classList.remove('open'));
+document.getElementById('confirmCancel').addEventListener('click', () => confirmModal.classList.remove('open'));
+confirmModal.addEventListener('click', e => { if(e.target === confirmModal) confirmModal.classList.remove('open'); });
+
+document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+  const typed = document.getElementById('confirmInput').value.trim();
+  if(typed !== deleteTargetName){
+    const el = document.getElementById('confirmError');
+    el.textContent = "That doesn't match the tile's name."; el.style.display = 'block';
+    return;
+  }
+  const res = await authFetch('/.netlify/functions/tiles-admin-delete', { method:'POST', body: JSON.stringify({ id: deleteTargetId }) });
+  if(!res.ok){
+    const el = document.getElementById('confirmError');
+    el.textContent = 'Delete failed — try again.'; el.style.display = 'block';
+    return;
+  }
+  confirmModal.classList.remove('open');
+  tileFormBackdrop.classList.remove('open');
+  await tryEnterDashboard();
+});
+
+/* =========================================================
+   EXPORT — regenerates a fresh index.html client-side: fetch the current
+   live page (the "shell" — every part of the site that ISN'T the tiles
+   array), fetch every tile from the database a page at a time, splice a
+   freshly-built PRODUCTS array between the /* TILES:START *\/ ... /* TILES:END *\/
+   markers, and hand the result to the browser as a download.
+   Everything happens in this tab; nothing is uploaded anywhere by this
+   button — see the on-page reminder to rename + upload it yourself.
+   ========================================================= */
+function tileToLiteral(t){
+  // Mirrors the original hand-authored PRODUCTS object shape: only the
+  // fields that actually apply to this tile are included, same sparse
+  // style the array has always used (a product never carried a
+  // `youtubeId` key at all, rather than carrying one set to null).
+  const o = { slug: t.slug, cats: t.cats || [] };
+  if(t.icon) o.icon = t.icon;
+  if(t.color) o.color = t.color;
+  o.name = t.name;
+  if(t.note) o.note = t.note;
+  if(t.desc) o.desc = t.desc;
+  if(typeof t.affiliate === 'boolean') o.affiliate = t.affiliate;
+  if(t.img) o.img = t.img;
+  if(t.link) o.link = t.link;
+  if(t.dateAdded) o.dateAdded = t.dateAdded;
+  if(t.exoticsLinked) o.exoticsLinked = true;
+  if(t.hideBadge) o.hideBadge = true;
+  if(t.type === 'video') o.type = 'video';
+  if(t.youtubeId) o.youtubeId = t.youtubeId;
+  if(t.noEmbed) o.noEmbed = true;
+  if(t.source) o.source = t.source;
+  if(t.gadgetMeter) o.gadgetMeter = t.gadgetMeter;
+  return o;
+}
+
+function setExportStatus(text, pct){
+  const el = document.getElementById('exportStatus');
+  el.classList.add('active');
+  document.getElementById('exportStatusText').textContent = text;
+  if(typeof pct === 'number') document.getElementById('exportProgressFill').style.width = `${pct}%`;
+}
+
+document.getElementById('exportBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('exportBtn');
+  btn.disabled = true;
+  try{
+    setExportStatus('Fetching the current live site…', 3);
+    const shellRes = await fetch('/index.html', { cache: 'no-store' });
+    if(!shellRes.ok) throw new Error("Couldn't fetch the live site.");
+    const shellText = await shellRes.text();
+
+    const startMarker = shellText.indexOf('/* TILES:START');
+    const endMarkerText = '/* TILES:END */';
+    const endMarkerIdx = shellText.indexOf(endMarkerText);
+    if(startMarker === -1 || endMarkerIdx === -1){
+      throw new Error('MARKERS_MISSING');
+    }
+    const endIdx = endMarkerIdx + endMarkerText.length;
+
+    // Page through every tile, WITH images, MAX_LIMIT-sized pages (see
+    // tiles-admin-list.js) to stay well under Netlify Functions' payload
+    // ceiling on any single response.
+    let offset = 0, total = null, tiles = [];
+    while(true){
+      const res = await authFetch(`/.netlify/functions/tiles-admin-list?full=1&offset=${offset}&limit=12`);
+      if(!res.ok) throw new Error('Failed fetching tiles.');
+      const body = await res.json();
+      tiles = tiles.concat(body.tiles);
+      total = body.total;
+      offset += body.tiles.length;
+      setExportStatus(`Fetching tiles… ${Math.min(offset, total)}/${total}`, 5 + 80 * (offset / Math.max(total,1)));
+      if(!body.hasMore || body.tiles.length === 0) break;
+    }
+
+    setExportStatus('Building the file…', 90);
+    const arrayBody = tiles.map(t => '  ' + JSON.stringify(tileToLiteral(t))).join(',\n');
+    const startCommentText = shellText.slice(startMarker, shellText.indexOf('const PRODUCTS'));
+    const freshBlock = `${startCommentText}const PRODUCTS = [\n${arrayBody}\n];\n${endMarkerText}`;
+    const newHtml = shellText.slice(0, startMarker) + freshBlock + shellText.slice(endIdx);
+
+    setExportStatus('Starting download…', 98);
+    const blob = new Blob([newHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'mandeleon-export.html';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    setExportStatus(`Done — ${tiles.length} tiles exported. Rename the download to index.html before uploading.`, 100);
+  } catch(err){
+    if(err.message === 'MARKERS_MISSING'){
+      setExportStatus("Your live site doesn't have the Export markers yet — upload the index.html that came with this dashboard first, then try Export again.", 0);
+    } else {
+      setExportStatus("Export failed: " + err.message, 0);
+    }
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
