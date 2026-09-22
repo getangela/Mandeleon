@@ -983,6 +983,16 @@
     background:#f4f4f4; padding:3px 6px; border-radius:9px; margin-left:6px;
   }
   .stack-badge img{display:block; height:7px; width:auto;}
+  /* Mindset-tile-only "New" mark — same red-on-white pill as .new-ribbon,
+     but inline next to the title (see isMindsetTile above) instead of
+     absolutely positioned over the image, since it sits in the exact
+     spot .stack-badge would otherwise take. */
+  .new-ribbon-inline{
+    display:inline-flex; align-items:center; vertical-align:middle;
+    background:#fff; color:var(--red); font-size:9px; font-weight:800;
+    letter-spacing:.4px; text-transform:uppercase; padding:2px 7px; border-radius:9px;
+    margin-left:6px; border:1px solid rgba(0,0,0,.08); box-shadow:0 1px 2px rgba(0,0,0,.12);
+  }
   .overlay-top{display:flex; justify-content:flex-end;}
   /* Heart-shaped Save toggle — same icon and 22px size as the outline heart
      in the top nav (#navFavorites), so "saving" a tile visually matches
@@ -4512,9 +4522,17 @@ function render(list){
     const visualInner = isVideo
       ? `<div class="play-badge">▶</div>`
       : (p.img ? '' : `<div class="icon-wrap"><span class="icon icon-emoji">${p.icon}</span></div>`);
+    // Mindset (inspiration) tiles are text-quote images with the quote
+    // itself running edge-to-edge — the top-left "New" ribbon used on
+    // every other tile's photo sits right on top of that text there, so
+    // for this bucket only, "New" moves down next to the title instead
+    // (replacing the personal-stack mark in that same spot) rather than
+    // overlapping the image.
+    const isMindsetTile = p.cats.includes('inspiration');
+    const showNewOnTitle = isMindsetTile && isNew(p);
     card.innerHTML = `
       <div class="pin-visual${isVideo ? ' video-visual' : ''}" style="${visualStyle}">
-        ${isNew(p) ? '<span class="new-ribbon">New</span>' : ''}
+        ${(isNew(p) && !isMindsetTile) ? '<span class="new-ribbon">New</span>' : ''}
         ${visualInner}
         <div class="pin-overlay">
           <div class="overlay-top">
@@ -4532,7 +4550,7 @@ function render(list){
         </div>
       </div>
       <div class="pin-body">
-        <p class="pin-name">${p.name}${isInStack(p) ? `<span class="stack-badge" title="In my personal stack"><img src="${STACK_ICON}" alt="In my personal stack"></span>` : ''}</p>
+        <p class="pin-name">${p.name}${showNewOnTitle ? '<span class="new-ribbon-inline" title="New">New</span>' : (isInStack(p) ? `<span class="stack-badge" title="In my personal stack"><img src="${STACK_ICON}" alt="In my personal stack"></span>` : '')}</p>
         <p class="pin-note">${p.note}</p>
         <div class="pin-meta">
           ${(p.hideBadge || ((p.cats.includes('diet') || p.cats.includes('inspiration') || p.cats.includes('exotics') || p.exoticsLinked) && p.link === '#')) ? '' : `<span class="badge ${badgeClass}">${badgeText}</span>`}
