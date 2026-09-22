@@ -57,10 +57,31 @@ function requireUser(context) {
   return user;
 }
 
+// Admin Dashboard (see todo.html "Content management") — gates every
+// tiles-admin-* function to the site owner only, never any regular
+// logged-in visitor. Deliberately NOT a database column or an Identity
+// role (either would need its own admin UI just to manage who's an admin,
+// which doesn't exist and isn't needed for a single-owner site) — just a
+// plain allowlist of emails read from the ADMIN_EMAILS environment
+// variable, same "real env var we set manually" pattern DATABASE_URL
+// already uses above. Comma-separated so more than one email can be
+// trusted later without a code change. Compared case-insensitively since
+// email casing isn't meaningful and Identity doesn't normalize it for us.
+function requireAdmin(context) {
+  const user = requireUser(context);
+  if (!user) return null;
+  const allowed = (process.env.ADMIN_EMAILS || '')
+    .split(',')
+    .map(e => e.trim().toLowerCase())
+    .filter(Boolean);
+  if (!user.email || !allowed.includes(user.email.toLowerCase())) return null;
+  return user;
+}
+
 const json = (statusCode, body) => ({
   statusCode,
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify(body),
 });
 
-module.exports = { getDb, ensureUser, requireUser, json };
+module.exports = { getDb, ensureUser, requireUser, requireAdmin, json };
