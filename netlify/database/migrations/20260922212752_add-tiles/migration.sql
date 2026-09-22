@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS tiles (
   icon TEXT,
   color TEXT,
   note TEXT,
-  desc TEXT,
+  "desc" TEXT,
   affiliate BOOLEAN,
   img TEXT,               -- base64 data: URI; null for videos
   link TEXT,
