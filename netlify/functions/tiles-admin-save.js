@@ -64,6 +64,16 @@ exports.handler = async (event, context) => {
     hideBadge: !!body.hideBadge,
     gadgetMeter,
     dateAdded: body.dateAdded || new Date().toISOString().slice(0, 10),
+    // "In my personal stack" (the ∞ icon) — opt-IN, defaulting to false on
+    // a brand-new tile. Unlike every other flag here, this one deliberately
+    // does NOT mirror "unset means off": the stack badge used to mean
+    // "every tile shows it unless explicitly excluded" back when Aeon
+    // hand-authored the whole PRODUCTS array herself, but a tile catalogued
+    // through this dashboard isn't necessarily something she actually uses
+    // — so it has to be a conscious checkbox, not an assumption. See
+    // database/migrations/005_in_stack_flag.sql for how the 138 tiles that
+    // predate this field were backfilled to match their old computed value.
+    inStack: !!body.inStack,
   };
 
   const db = getDb();
@@ -82,7 +92,7 @@ exports.handler = async (event, context) => {
           link = ${fields.link}, youtube_id = ${fields.youtubeId}, no_embed = ${fields.noEmbed},
           source = ${fields.source}, exotics_linked = ${fields.exoticsLinked},
           hide_badge = ${fields.hideBadge}, gadget_meter = ${fields.gadgetMeter},
-          date_added = ${fields.dateAdded}, updated_at = NOW()
+          date_added = ${fields.dateAdded}, in_stack = ${fields.inStack}, updated_at = NOW()
         WHERE id = ${id}
       `;
       return json(200, { ok: true, id });
@@ -103,12 +113,13 @@ exports.handler = async (event, context) => {
     const rows = await db.sql`
       INSERT INTO tiles
         (slug, type, name, cats, icon, color, note, "desc", affiliate, img, link,
-         youtube_id, no_embed, source, exotics_linked, hide_badge, gadget_meter, date_added)
+         youtube_id, no_embed, source, exotics_linked, hide_badge, gadget_meter, date_added, in_stack)
       VALUES
         (${slug}, ${fields.type}, ${fields.name}, ${fields.cats}::jsonb, ${fields.icon},
          ${fields.color}, ${fields.note}, ${fields.desc}, ${fields.affiliate}, ${fields.img},
          ${fields.link}, ${fields.youtubeId}, ${fields.noEmbed}, ${fields.source},
-         ${fields.exoticsLinked}, ${fields.hideBadge}, ${fields.gadgetMeter}, ${fields.dateAdded})
+         ${fields.exoticsLinked}, ${fields.hideBadge}, ${fields.gadgetMeter}, ${fields.dateAdded},
+         ${fields.inStack})
       RETURNING id, slug
     `;
     return json(200, { ok: true, id: rows[0].id, slug: rows[0].slug });

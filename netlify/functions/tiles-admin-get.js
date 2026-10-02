@@ -21,7 +21,8 @@ exports.handler = async (event, context) => {
       SELECT id, slug, type, name, cats, icon, color, note, "desc", affiliate, img, link,
              youtube_id AS "youtubeId", no_embed AS "noEmbed", source,
              exotics_linked AS "exoticsLinked", hide_badge AS "hideBadge",
-             gadget_meter AS "gadgetMeter", date_added AS "dateAdded"
+             gadget_meter AS "gadgetMeter", date_added AS "dateAdded",
+             in_stack AS "inStack"
       FROM tiles WHERE id = ${id} LIMIT 1
     `;
     if (rows.length === 0) return json(404, { error: 'Tile not found' });
