@@ -787,7 +787,12 @@ function tileToLiteral(t){
   if(typeof t.affiliate === 'boolean') o.affiliate = t.affiliate;
   if(t.img) o.img = t.img;
   if(t.link) o.link = t.link;
-  if(t.dateAdded) o.dateAdded = t.dateAdded;
+  // The database's DATE column round-trips through this API as a full ISO
+  // timestamp ("YYYY-MM-DDT00:00:00.000Z"), not the plain "YYYY-MM-DD" the
+  // array has always used — trimmed back to just the date part here so
+  // index.html's isNew() (which expects the plain form) keeps working and
+  // exported tiles stay in the same style as hand-authored ones.
+  if(t.dateAdded) o.dateAdded = String(t.dateAdded).slice(0, 10);
   if(t.exoticsLinked) o.exoticsLinked = true;
   if(t.hideBadge) o.hideBadge = true;
   if(t.type === 'video') o.type = 'video';
