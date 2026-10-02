@@ -305,6 +305,11 @@
         <div class="field">
           <label class="checkline"><input type="checkbox" id="f-hideBadge"> Hide the "New"/date badge on this tile</label>
         </div>
+        <div class="field">
+          <label class="checkline"><input type="checkbox" id="f-inStack"> This is a product I personally use
+            <span class="hint">— shows the ∞ stack icon next to the tile's name</span>
+          </label>
+        </div>
       </div>
 
       <p id="formError"></p>
@@ -611,6 +616,7 @@ async function openTileForm(id){
   document.getElementById('f-source').value = t.source || '';
   document.getElementById('f-exoticsLinked').checked = !!t.exoticsLinked;
   document.getElementById('f-hideBadge').checked = !!t.hideBadge;
+  document.getElementById('f-inStack').checked = !!t.inStack;
   if(t.img){
     document.getElementById('imgPreview').style.backgroundImage = `url('${t.img}')`;
     pendingImgDataUrl = t.img; // unchanged unless a new file is picked
@@ -705,6 +711,7 @@ tileForm.addEventListener('submit', async (e) => {
     source: document.getElementById('f-source').value.trim(),
     exoticsLinked: document.getElementById('f-exoticsLinked').checked,
     hideBadge: document.getElementById('f-hideBadge').checked,
+    inStack: document.getElementById('f-inStack').checked,
     gadgetMeter: cats.includes('gadgets') ? gadgetMeterSelect.value : null,
   };
 
@@ -795,6 +802,10 @@ function tileToLiteral(t){
   if(t.dateAdded) o.dateAdded = String(t.dateAdded).slice(0, 10);
   if(t.exoticsLinked) o.exoticsLinked = true;
   if(t.hideBadge) o.hideBadge = true;
+  // Sparse like everything else here: only written when true, so
+  // index.html's isInStack() falls back to its old hardcoded-exclusion
+  // logic for any tile exported before this field existed.
+  if(t.inStack) o.inStack = true;
   if(t.type === 'video') o.type = 'video';
   if(t.youtubeId) o.youtubeId = t.youtubeId;
   if(t.noEmbed) o.noEmbed = true;
