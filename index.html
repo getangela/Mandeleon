@@ -995,16 +995,21 @@
   }
   .overlay-top{display:flex; justify-content:flex-end;}
   /* Heart-shaped Save toggle — same icon and 22px size as the outline heart
-     in the top nav (#navFavorites), so "saving" a tile visually matches
-     "viewing your Favorites". Always a solid red heart regardless of saved
-     state — whether a tile is saved shows up in the Favorites list itself,
-     not as a color change here. */
+     in the top nav (#navFavorites). Unsaved: a plain black outline heart
+     (a white glow keeps it legible over dark photos/overlays too, since
+     there's no fill to show up against a dark background on its own).
+     Saved: fills solid red, same red as the active nav heart — so a tile
+     you've already favorited reads the same way here as it does over on
+     the Favorites board, and tapping it there un-saves it right back to
+     the outline state. */
   .save-heart-btn{
     width:40px; height:40px; border-radius:50%; border:none; background:none;
-    color:var(--red); display:flex; align-items:center; justify-content:center;
-    filter:drop-shadow(0 1px 3px rgba(0,0,0,.45));
+    color:var(--ink); display:flex; align-items:center; justify-content:center;
+    filter:drop-shadow(0 0 2px rgba(255,255,255,.85)) drop-shadow(0 1px 2px rgba(0,0,0,.3));
   }
-  .save-heart-btn svg{ fill:currentColor; }
+  .save-heart-btn svg{ fill:none; }
+  .save-heart-btn.saved{ color:var(--red); filter:drop-shadow(0 1px 3px rgba(0,0,0,.45)); }
+  .save-heart-btn.saved svg{ fill:currentColor; }
   .save-heart-btn:hover{background:rgba(255,255,255,.15);}
   .overlay-bottom{display:flex; justify-content:flex-end; align-items:flex-end; gap:8px;}
   .feed-card-btn{
@@ -3349,6 +3354,26 @@ PRODUCTS.forEach(p => {
   p.gadgetMeters = meterKey ? [meterKey] : [];
 });
 
+// Foundational: same per-product treatment as Gadgets, for the same reason
+// — "foundational" covers everything from a protein powder to a prenatal
+// multi to trace minerals, too varied for one shared meter (see the
+// CATEGORY_TO_METER note above, which leaves foundational unmapped on
+// purpose). Rather than map the whole bucket, individual foundational
+// tiles opt in here by name as they're given a clear best-fit meter.
+// Trace Mineral Liquid feeds Energy: trace minerals (sulfate, lithium,
+// boron) support the electrolyte balance and mitochondrial/enzymatic
+// function behind cellular energy production, which is what the
+// Energy & Mitochondria meter already represents for NAD+/senolytic
+// items. The other 9 foundational tiles stay unmapped for now.
+const FOUNDATIONAL_METER_BY_NAME = {
+  'Trace Mineral Liquid': 'energy'
+};
+PRODUCTS.forEach(p => {
+  if(!p.cats.includes('foundational')) return;
+  const meterKey = FOUNDATIONAL_METER_BY_NAME[p.name];
+  p.foundationalMeters = meterKey ? [meterKey] : [];
+});
+
 // Local calendar day, NOT UTC. Every daily mechanic (decay, the streak,
 // the per-day feed caps) hinges on this string flipping only when the
 // VISITOR's own day rolls over. toISOString() reads UTC, which flips at a
@@ -3697,6 +3722,11 @@ function getFeedableMeters(product, avatar){
   // Gadgets: feedable immediately, no unlock gate — see `gadgetMeters` above.
   if(product.cats && product.cats.includes('gadgets') && product.gadgetMeters){
     product.gadgetMeters.forEach(k => keys.add(k));
+  }
+  // Foundational: same immediate, no-unlock-gate treatment as Gadgets —
+  // see `foundationalMeters` above.
+  if(product.cats && product.cats.includes('foundational') && product.foundationalMeters){
+    product.foundationalMeters.forEach(k => keys.add(k));
   }
   return Array.from(keys);
 }
