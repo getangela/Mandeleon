@@ -1213,6 +1213,34 @@
   }
   .gate-avatar-fields input[type="text"]:focus{border-color:var(--ink);}
 
+
+  /* ---------- Exotics "My List" (personal shopping list, no checkout) ---------- */
+  .list-add-btn{margin-left:auto; border:1.5px solid var(--ink); background:var(--paper); color:var(--ink);
+    font-size:12px; font-weight:700; padding:5px 10px; border-radius:999px; white-space:nowrap;}
+  .list-add-btn.added{background:var(--ink); color:#fff;}
+  .exlist-bar{position:fixed; left:50%; bottom:18px; transform:translateX(-50%); z-index:60;
+    display:none; gap:8px; background:var(--paper); border:1px solid var(--line); border-radius:999px;
+    padding:8px; box-shadow:0 6px 24px rgba(0,0,0,.25);}
+  .exlist-bar.show{display:flex;}
+  .exlist-bar button{border:none; border-radius:999px; padding:10px 16px; font-size:14px; font-weight:700;}
+  .exlist-bar .exlist-open{background:var(--ink); color:#fff;}
+  .exlist-modal{max-width:440px; position:relative; text-align:left;}
+  .exlist-modal h2{text-align:center; margin-bottom:6px;}
+  .exlist-intro{text-align:center; font-size:13px; color:var(--ink-soft); margin:0 0 14px;}
+  .exlist-items{list-style:none; padding:0; margin:0 0 14px; max-height:40vh; overflow:auto;}
+  .exlist-items li{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); font-size:14px;}
+  .exlist-items li span.n{flex:1;}
+  .exlist-items li button{border:none; background:none; color:var(--ink-soft); font-size:13px; text-decoration:underline;}
+  .exlist-empty{text-align:center; color:var(--ink-soft); font-size:14px; padding:12px 0;}
+  .exlist-actions{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .exlist-actions button{border:1.5px solid var(--ink); background:var(--paper); color:var(--ink);
+    border-radius:999px; padding:10px; font-size:14px; font-weight:700;}
+  .exlist-actions button:disabled{opacity:.4; cursor:default;}
+  .exlist-actions .exlist-contact-wide{grid-column:1 / -1; background:var(--ink); color:#fff;}
+  .exlist-actions .exlist-clear{grid-column:1 / -1; border:none; background:none; font-weight:400; font-size:13px; text-decoration:underline; color:var(--ink-soft); padding:4px;}
+  .exlist-ask{margin-top:14px; padding-top:14px; border-top:1px solid var(--line);}
+  .exlist-status{text-align:center; font-size:13px; color:var(--affiliate); min-height:18px; margin:8px 0 0;}
+  .exlist-fine{text-align:center; font-size:11.5px; color:var(--ink-soft); margin:10px 0 0;}
   /* ---------- General contact modal ---------- */
   .contact-modal{max-width:440px; position:relative; text-align:left;}
   .contact-modal h2{text-align:center; margin-bottom:6px;}
@@ -2318,6 +2346,36 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
         <button class="gate-btn gate-cancel" id="gateCancel">Go Back</button>
         <button class="gate-btn gate-confirm" id="gateConfirm">I'm 18+, Continue</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Exotics "My List": a personal list only — nothing is purchased or ordered here. -->
+  <div class="exlist-bar" id="exlistBar">
+    <button class="exlist-open" id="exlistOpenBtn">📝 My List (<span id="exlistCount">0</span>)</button>
+  </div>
+  <div class="gate-backdrop" id="exlistBackdrop">
+    <div class="gate-modal exlist-modal" role="dialog" aria-modal="true" aria-labelledby="exlistTitle">
+      <button class="modal-close" id="exlistCloseBtn" aria-label="Close">✕</button>
+      <h2 id="exlistTitle">My Exotics List</h2>
+      <p class="exlist-intro">A personal list to bring to your doctor or pharmacist. Nothing is sold or ordered on this site.</p>
+      <ul class="exlist-items" id="exlistItems"></ul>
+      <div class="exlist-actions">
+        <button id="exlistCopyBtn">📋 Copy list</button>
+        <button id="exlistEmailBtn">✉️ Email list</button>
+        <button class="exlist-contact-wide" id="exlistContactBtn">Contact me about Exotics</button>
+        <button class="exlist-clear" id="exlistClearBtn">Clear list</button>
+      </div>
+      <form class="exlist-ask contact-form" id="exlistAskForm" name="exotics-question" method="POST" data-netlify="true" netlify-honeypot="bot-field" hidden>
+        <input type="hidden" name="form-name" value="exotics-question">
+        <p style="display:none"><label>Leave blank: <input name="bot-field"></label></p>
+        <label for="exlistAskEmail">Your email</label>
+        <input type="email" id="exlistAskEmail" name="email" placeholder="you@email.com" required>
+        <label for="exlistAskMsg">Your question</label>
+        <textarea id="exlistAskMsg" name="message" rows="4" placeholder="Ask me anything about Exotics" required></textarea>
+        <button type="submit" class="gate-submit" id="exlistAskSend" style="background:var(--ink)">Send</button>
+      </form>
+      <p class="exlist-status" id="exlistStatus"></p>
+      <p class="exlist-fine">Most of these items require a prescription and medical supervision.</p>
     </div>
   </div>
 
@@ -4529,6 +4587,105 @@ function isNew(p){
   return diffDays >= 0 && diffDays <= NEW_WINDOW_DAYS;
 }
 
+/* =========================================================
+   EXOTICS "MY LIST" — a personal shopping list for the items below.
+   No checkout and no ordering: the list lives only in the visitor's
+   browser (localStorage), and they can copy it or email it to anyone
+   from their own mail app.
+   ========================================================= */
+const EXLIST_NAMES = ["Selegiline","Piracetam","Tretinoin Cream","Tadalafil","Bimatoprost",
+  "Estriol Cream (women)","Placenta Cream","Metformin","Canagliflozin","Minoxidil"];
+const EXLIST_KEY = 'mandeleon_exotics_list';
+let exList = (() => {
+  try{ const v = JSON.parse(localStorage.getItem(EXLIST_KEY) || '[]');
+    return Array.isArray(v) ? v.filter(n => EXLIST_NAMES.includes(n)) : []; }
+  catch(e){ return []; }
+})();
+function saveExList(){ try{ localStorage.setItem(EXLIST_KEY, JSON.stringify(exList)); } catch(e){} }
+function toggleExList(name){
+  exList = exList.includes(name) ? exList.filter(n => n !== name) : [...exList, name];
+  saveExList();
+  document.querySelectorAll('.list-add-btn').forEach(b => {
+    if(b.dataset.listname !== name) return;
+    const on = exList.includes(name);
+    b.classList.toggle('added', on);
+    b.textContent = on ? '✓ On list' : '+ Add to list';
+  });
+  updateExListBar();
+  renderExListPanel();
+}
+function updateExListBar(activeCat){
+  const cat = activeCat || (document.querySelector('.cat-pill.active') || {}).dataset?.filter;
+  document.getElementById('exlistCount').textContent = exList.length;
+  document.getElementById('exlistBar').classList.toggle('show', cat === 'exotics' && exoticsUnlocked);
+}
+function exListText(){
+  return 'My Exotics list (from mandeleon.com):\n\n' + exList.map(n => '• ' + n).join('\n')
+    + '\n\nMost of these items require a prescription and medical supervision.';
+}
+function exListStatus(msg){
+  const s = document.getElementById('exlistStatus'); s.textContent = msg;
+  clearTimeout(exListStatus._t); exListStatus._t = setTimeout(() => { s.textContent = ''; }, 2500);
+}
+function renderExListPanel(){
+  const ul = document.getElementById('exlistItems');
+  ul.innerHTML = exList.length ? '' : '<li class="exlist-empty">Your list is empty. Tap “+ Add to list” on an Exotics card.</li>';
+  exList.forEach(n => {
+    const li = document.createElement('li');
+    li.innerHTML = '<span class="n"></span><button type="button">Remove</button>';
+    li.querySelector('.n').textContent = n;
+    li.querySelector('button').addEventListener('click', () => toggleExList(n));
+    ul.appendChild(li);
+  });
+  ['exlistCopyBtn','exlistEmailBtn','exlistClearBtn'].forEach(id => { document.getElementById(id).disabled = !exList.length; });
+}
+function openExList(){ renderExListPanel(); document.getElementById('exlistBackdrop').classList.add('open'); document.body.classList.add('gate-locked'); }
+function closeExList(){ document.getElementById('exlistAskForm').hidden = true; document.getElementById('exlistBackdrop').classList.remove('open'); document.body.classList.remove('gate-locked'); }
+(function wireExList(){
+  const $ = id => document.getElementById(id);
+  $('exlistOpenBtn').addEventListener('click', openExList);
+  $('exlistCloseBtn').addEventListener('click', closeExList);
+  $('exlistBackdrop').addEventListener('click', e => { if(e.target === $('exlistBackdrop')) closeExList(); });
+  // Shows a short message form inside this popup. Submissions go through
+  // Netlify Forms ("exotics-question") so the owner's email is never shown
+  // on the site. The visitor's list is NOT included.
+  $('exlistContactBtn').addEventListener('click', () => {
+    const f = $('exlistAskForm'); f.hidden = !f.hidden;
+    if(!f.hidden) $('exlistAskEmail').focus();
+  });
+  $('exlistAskForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = $('exlistAskForm'), btn = $('exlistAskSend');
+    btn.disabled = true; btn.textContent = 'Sending...';
+    try{
+      const res = await fetch('/', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: netlifyEncode(f) });
+      if(!res.ok) throw new Error('non-200');
+      f.reset(); f.hidden = true; exListStatus("Thanks — I'll reply by email soon.");
+    } catch(err){
+      exListStatus('Message not sent — please try again in a moment.');
+    }
+    btn.disabled = false; btn.textContent = 'Send';
+  });
+  $('exlistClearBtn').addEventListener('click', () => {
+    exList = []; saveExList(); renderExListPanel(); updateExListBar();
+    document.querySelectorAll('.list-add-btn').forEach(b => { b.classList.remove('added'); b.textContent = '+ Add to list'; });
+  });
+  $('exlistCopyBtn').addEventListener('click', async () => {
+    const text = exListText();
+    try{ await navigator.clipboard.writeText(text); exListStatus('Copied to clipboard.'); }
+    catch(e){
+      const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+      try{ document.execCommand('copy'); exListStatus('Copied to clipboard.'); } catch(_){ exListStatus('Copy failed — select and copy manually.'); }
+      ta.remove();
+    }
+  });
+  // Opens the visitor's own mail app with the "To" left blank, so they
+  // choose who it goes to (themselves, their doctor, a friend).
+  $('exlistEmailBtn').addEventListener('click', () => {
+    window.location.href = 'mailto:?subject=' + encodeURIComponent('My Exotics list') + '&body=' + encodeURIComponent(exListText());
+  });
+})();
+
 function render(list){
   grid.innerHTML = '';
   if(list.length === 0){ emptyState.classList.add('show'); return; }
@@ -4603,6 +4760,9 @@ function render(list){
         <div class="pin-meta">
           ${(p.hideBadge || ((p.cats.includes('diet') || p.cats.includes('inspiration') || p.cats.includes('exotics') || p.exoticsLinked) && p.link === '#')) ? '' : `<span class="badge ${badgeClass}">${badgeText}</span>`}
           <span class="cat-tag">${catLabel}</span>
+          ${(activeCatNow === 'exotics' && exoticsUnlocked && EXLIST_NAMES.includes(p.name))
+            ? `<button class="list-add-btn${exList.includes(p.name) ? ' added' : ''}" data-listname="${p.name}">${exList.includes(p.name) ? '✓ On list' : '+ Add to list'}</button>`
+            : ''}
         </div>
       </div>
     `;
@@ -4619,6 +4779,11 @@ function render(list){
     }
     grid.appendChild(card);
   });
+
+  grid.querySelectorAll('.list-add-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => { e.stopPropagation(); toggleExList(btn.dataset.listname); });
+  });
+  updateExListBar(activeCatNow);
 
   // wire up save buttons after render
   grid.querySelectorAll('.save-heart-btn').forEach(btn => {
