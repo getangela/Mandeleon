@@ -943,7 +943,8 @@
   }
   @media(min-width:640px){.pin-grid{column-count:3;}}
   @media(min-width:900px){.pin-grid{column-count:4;}}
-  @media(min-width:1200px){.pin-grid{column-count:5;}}
+  @media(min-width:1150px){.pin-grid{column-count:5;}}
+  @media(min-width:1400px){.pin-grid{column-count:6; max-width:1760px;}}
 
   .pin-card{
     break-inside:avoid; margin-bottom:16px; background:var(--paper);
@@ -1712,6 +1713,34 @@
      open when "Log in or sign up" was clicked — e.g. the avatar dashboard
      tile. Force it above all of them, including the toast/confetti layers. */
   #netlify-identity-widget{ z-index:99999 !important; }
+
+  /* ---------- Compact Pinterest-style tiles on phones ----------
+     Tighter gutters, smaller text and a 3-line cap on each tile's blurb so
+     more tiles fit on one phone screen. The full blurb is still shown when
+     a tile is opened. Desktop/tablet layout is unaffected. */
+  @media(max-width:639px){
+    .pin-grid{column-gap:8px; padding:8px;}
+    .pin-card{margin-bottom:8px; border-radius:14px;}
+    .pin-body{padding:8px 10px 10px;}
+    .pin-name{font-size:13px; line-height:1.25; margin-bottom:3px;}
+    .pin-note{font-size:11.5px; line-height:1.35; margin-bottom:6px;
+      display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;}
+    .pin-meta{flex-wrap:wrap; gap:4px;}
+    .pin-meta .badge{font-size:9px; padding:3px 7px; letter-spacing:.2px;}
+    .pin-meta .cat-tag{font-size:10.5px;}
+    .pin-meta .list-add-btn{font-size:11px; padding:4px 8px;}
+    .pin-overlay{padding:6px;}
+    .feed-card-btn{padding:6px 10px; font-size:11px;}
+    .save-heart-btn{width:34px; height:34px;}
+  }
+
+  /* Swipe between buckets — a short slide-in so the switch feels like
+     paging sideways (see setupBucketSwipe() in the script). */
+  @keyframes swipeInLeft{ from{transform:translateX(40px); opacity:.25;} to{transform:none; opacity:1;} }
+  @keyframes swipeInRight{ from{transform:translateX(-40px); opacity:.25;} to{transform:none; opacity:1;} }
+  .pin-grid.swipe-in-left{ animation:swipeInLeft .25s ease-out; }
+  .pin-grid.swipe-in-right{ animation:swipeInRight .25s ease-out; }
+  @media (prefers-reduced-motion: reduce){ .pin-grid.swipe-in-left, .pin-grid.swipe-in-right{ animation:none; } }
 </style>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 </head>
@@ -2377,7 +2406,7 @@ c1048 -4 1219 0 1632 34 200 16 233 21 289 41 22 7 82 18 135 24 52 6 129 21
         <button type="submit" class="gate-submit" id="exlistAskSend" style="background:var(--ink)">Send</button>
       </form>
       <p class="exlist-status" id="exlistStatus"></p>
-      <p class="exlist-fine">Most of these items require a prescription and medical supervision.</p>
+      <p class="exlist-fine">Some of these may require a prescription or medical supervision.</p>
     </div>
   </div>
 
@@ -4623,7 +4652,7 @@ function updateExListBar(activeCat){
 }
 function exListText(){
   return 'My Exotics list (from mandeleon.com):\n\n' + exList.map(n => '• ' + n).join('\n')
-    + '\n\nMost of these items require a prescription and medical supervision.';
+    + '\n\nSome of these may require a prescription or medical supervision.';
 }
 function exListStatus(msg){
   const s = document.getElementById('exlistStatus'); s.textContent = msg;
@@ -4918,6 +4947,15 @@ function activatePill(btn){
   // Personal Boards below.
   document.getElementById('favoritesBoardsBar').hidden = btn.dataset.filter !== 'favorites';
   applyFilters();
+  // Keep the newly active pill in view in the horizontal pill bar (matters
+  // most when switching buckets by swiping, where the active pill could
+  // otherwise be scrolled off-screen). Only the bar scrolls sideways —
+  // scrollIntoView() isn't used because it would also move the page.
+  const nav = document.getElementById('catNav');
+  if(nav && !btn.hidden){
+    const target = btn.offsetLeft - (nav.clientWidth - btn.offsetWidth) / 2;
+    nav.scrollTo({left: Math.max(0, target), behavior:'smooth'});
+  }
   // Switching categories rebuilds the grid to a different length, but the
   // browser keeps whatever scroll position the visitor was already at. If
   // they were scrolled deep into a long category (like "All") and switch to
@@ -4937,6 +4975,51 @@ document.getElementById('catNav').addEventListener('click', (e) => {
   }
   activatePill(btn);
 });
+
+/* ---------- Swipe between buckets (phones/tablets) ----------
+   Pinterest-style: on a touch screen, swiping left on the page moves to the
+   next bucket in the pill bar, swiping right moves to the previous one.
+   It goes through the exact same path as tapping that pill (btn.click()),
+   so Exotics still shows its 18+ gate and everything else behaves the same.
+   Vertical scrolling is untouched: only a clearly sideways, fairly quick
+   swipe counts. Swipes that start in the pill bar (which scrolls sideways
+   on its own), in a text field, on a slider, or while any popup is open
+   are ignored. */
+(function setupBucketSwipe(){
+  if(!window.matchMedia('(pointer: coarse)').matches) return;
+  let sx = 0, sy = 0, st = 0, tracking = false;
+  function popupOpen(){
+    return !!document.querySelector('.gate-backdrop.open, .modal-backdrop.open');
+  }
+  document.addEventListener('touchstart', (e) => {
+    tracking = false;
+    if(e.touches.length !== 1 || popupOpen()) return;
+    const t = e.target;
+    if(t.closest('#catNav, input, textarea, select, [contenteditable], .exlist-bar, .avatar-strip')) return;
+    sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now();
+    tracking = true;
+  }, {passive:true});
+  document.addEventListener('touchend', (e) => {
+    if(!tracking) return;
+    tracking = false;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - sx, dy = t.clientY - sy;
+    if(Date.now() - st > 700) return;
+    if(Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 2) return;
+    const pills = Array.from(document.querySelectorAll('#catNav .cat-pill')).filter(b => !b.hidden);
+    const cur = pills.findIndex(b => b.classList.contains('active'));
+    if(cur === -1) return; // e.g. on the Favorites view, which isn't in the bar
+    const next = pills[cur + (dx < 0 ? 1 : -1)];
+    if(!next) return;
+    const grid = document.querySelector('.pin-grid');
+    if(grid){
+      grid.classList.remove('swipe-in-left', 'swipe-in-right');
+      void grid.offsetWidth;
+      grid.classList.add(dx < 0 ? 'swipe-in-left' : 'swipe-in-right');
+    }
+    next.click();
+  }, {passive:true});
+})();
 
 document.getElementById('gateConfirm').addEventListener('click', () => {
   exoticsUnlocked = true;
