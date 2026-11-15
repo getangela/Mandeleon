@@ -1734,13 +1734,10 @@
     .save-heart-btn{width:34px; height:34px;}
   }
 
-  /* Swipe between buckets — a short slide-in so the switch feels like
-     paging sideways (see setupBucketSwipe() in the script). */
-  @keyframes swipeInLeft{ from{transform:translateX(40px); opacity:.25;} to{transform:none; opacity:1;} }
-  @keyframes swipeInRight{ from{transform:translateX(-40px); opacity:.25;} to{transform:none; opacity:1;} }
-  .pin-grid.swipe-in-left{ animation:swipeInLeft .25s ease-out; }
-  .pin-grid.swipe-in-right{ animation:swipeInRight .25s ease-out; }
-  @media (prefers-reduced-motion: reduce){ .pin-grid.swipe-in-left, .pin-grid.swipe-in-right{ animation:none; } }
+  /* Swipe between buckets (see setupBucketSwipe() in the script): let the
+     browser keep handling vertical scrolling and pinch-zoom on the grid,
+     while sideways drags are left to the swipe gesture. */
+  .pin-grid{ touch-action: pan-y pinch-zoom; }
 </style>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 </head>
@@ -3807,6 +3804,9 @@ function resetDailyTrackingIfNeeded(avatar){
 }
 
 function getFeedableMeters(product, avatar){
+  // YouTube video tiles are for watching only — they never get a Feed (or
+  // Boost) button, on the grid tile or in the popup.
+  if(product && product.type === 'video') return [];
   const keys = new Set();
   (product.cats || []).forEach(cat => {
     const meterKey = CATEGORY_TO_METER[cat];
@@ -4963,7 +4963,7 @@ function activatePill(btn){
   // the new page — showing its bottom (or nothing) instead of its top. Reset
   // to the top of the page on every category switch so the new bucket
   // always opens where it should.
-  window.scrollTo({top:0, behavior:'smooth'});
+  window.scrollTo({top:0, behavior: swipeNavInProgress ? 'auto' : 'smooth'});
 }
 
 document.getElementById('catNav').addEventListener('click', (e) => {
@@ -4977,48 +4977,81 @@ document.getElementById('catNav').addEventListener('click', (e) => {
 });
 
 /* ---------- Swipe between buckets (phones/tablets) ----------
-   Pinterest-style: on a touch screen, swiping left on the page moves to the
-   next bucket in the pill bar, swiping right moves to the previous one.
-   It goes through the exact same path as tapping that pill (btn.click()),
-   so Exotics still shows its 18+ gate and everything else behaves the same.
-   Vertical scrolling is untouched: only a clearly sideways, fairly quick
-   swipe counts. Swipes that start in the pill bar (which scrolls sideways
-   on its own), in a text field, on a slider, or while any popup is open
-   are ignored. */
+   Pinterest-style: on a touch screen the tile grid follows the finger
+   sideways; let go past ~1/5 of the screen (or with a quick flick) and it
+   glides to the next/previous bucket in the pill bar, otherwise it springs
+   back. Switching goes through the exact same path as tapping that pill
+   (btn.click()), so Exotics still shows its 18+ gate and everything else
+   behaves the same. Vertical scrolling is untouched: the gesture only takes
+   over once the finger is clearly moving sideways. Swipes that start in the
+   pill bar (which scrolls sideways on its own), in a text field, or while a
+   popup is open are ignored. */
+var swipeNavInProgress = false;
 (function setupBucketSwipe(){
   if(!window.matchMedia('(pointer: coarse)').matches) return;
-  let sx = 0, sy = 0, st = 0, tracking = false;
+  const grid = document.querySelector('.pin-grid');
+  if(!grid) return;
+  let sx = 0, sy = 0, st = 0, dx = 0;
+  let state = 'idle'; // idle | pending | horizontal | vertical
+  let target = null;
   function popupOpen(){
     return !!document.querySelector('.gate-backdrop.open, .modal-backdrop.open');
   }
-  document.addEventListener('touchstart', (e) => {
-    tracking = false;
-    if(e.touches.length !== 1 || popupOpen()) return;
-    const t = e.target;
-    if(t.closest('#catNav, input, textarea, select, [contenteditable], .exlist-bar, .avatar-strip')) return;
-    sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now();
-    tracking = true;
-  }, {passive:true});
-  document.addEventListener('touchend', (e) => {
-    if(!tracking) return;
-    tracking = false;
-    const t = e.changedTouches[0];
-    const dx = t.clientX - sx, dy = t.clientY - sy;
-    if(Date.now() - st > 700) return;
-    if(Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 2) return;
+  function neighbor(dir){
     const pills = Array.from(document.querySelectorAll('#catNav .cat-pill')).filter(b => !b.hidden);
     const cur = pills.findIndex(b => b.classList.contains('active'));
-    if(cur === -1) return; // e.g. on the Favorites view, which isn't in the bar
-    const next = pills[cur + (dx < 0 ? 1 : -1)];
-    if(!next) return;
-    const grid = document.querySelector('.pin-grid');
-    if(grid){
-      grid.classList.remove('swipe-in-left', 'swipe-in-right');
-      void grid.offsetWidth;
-      grid.classList.add(dx < 0 ? 'swipe-in-left' : 'swipe-in-right');
-    }
-    next.click();
+    if(cur === -1) return null; // e.g. Favorites view, which isn't in the bar
+    return pills[cur + dir] || null;
+  }
+  function setGrid(x, withTransition, ms){
+    grid.style.transition = withTransition ? `transform ${ms}ms cubic-bezier(.2,.7,.3,1), opacity ${ms}ms ease` : 'none';
+    grid.style.transform = x ? `translate3d(${x}px,0,0)` : '';
+    const w = window.innerWidth;
+    grid.style.opacity = x ? String(Math.max(.35, 1 - Math.abs(x) / w * .9)) : '';
+  }
+  document.addEventListener('touchstart', (e) => {
+    state = 'idle';
+    if(e.touches.length !== 1 || popupOpen()) return;
+    if(e.target.closest('#catNav, input, textarea, select, [contenteditable], .exlist-bar, .avatar-strip')) return;
+    sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now(); dx = 0;
+    state = 'pending';
   }, {passive:true});
+  document.addEventListener('touchmove', (e) => {
+    if(state === 'idle' || state === 'vertical') return;
+    const t = e.touches[0];
+    const mx = t.clientX - sx, my = t.clientY - sy;
+    if(state === 'pending'){
+      if(Math.abs(mx) < 8 && Math.abs(my) < 8) return;
+      if(Math.abs(mx) > Math.abs(my) * 1.1){ state = 'horizontal'; }
+      else { state = 'vertical'; return; }
+    }
+    dx = mx;
+    target = neighbor(dx < 0 ? 1 : -1);
+    // Rubber-band resistance at the first/last bucket.
+    setGrid(target ? dx : dx * .25, false);
+  }, {passive:true});
+  function finish(cancelled){
+    if(state !== 'horizontal'){ state = 'idle'; return; }
+    state = 'idle';
+    const w = window.innerWidth;
+    const v = Math.abs(dx) / Math.max(1, Date.now() - st); // px per ms
+    const go = !cancelled && target && (Math.abs(dx) > w * .2 || (Math.abs(dx) > 30 && v > .3));
+    if(!go){ setGrid(0, true, 220); return; }
+    const dir = dx < 0 ? -1 : 1;
+    const next = target;
+    setGrid(dir * w, true, 160);
+    setTimeout(() => {
+      swipeNavInProgress = true;
+      next.click();
+      swipeNavInProgress = false;
+      if(popupOpen()){ setGrid(0, false); return; } // e.g. the Exotics 18+ gate
+      setGrid(-dir * w * .35, false);
+      void grid.offsetWidth;
+      setGrid(0, true, 240);
+    }, 160);
+  }
+  document.addEventListener('touchend', () => finish(false), {passive:true});
+  document.addEventListener('touchcancel', () => finish(true), {passive:true});
 })();
 
 document.getElementById('gateConfirm').addEventListener('click', () => {
